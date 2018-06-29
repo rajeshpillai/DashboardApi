@@ -124,8 +124,15 @@ namespace DashboardApi.Controllers
             
             foreach(var measure in widgetModel.Measure)
             {
+               // var expDisplayName = !string.IsNullOrWhiteSpace(measure.DisplayName) ? measure.DisplayName : '[' + measure.Expression + ']';
+                if (!string.IsNullOrWhiteSpace(measure.DisplayName))
+                {
+                    measures.Append(string.Format("{0} as {1} ", measure.Expression, measure.DisplayName) + ", ");
+                } else
+                {
+                    measures.Append(string.Format("{0} ", measure.Expression) + ", ");
+                }
                 
-                measures.Append(string.Format("{0} as {1} ", measure.Expression, measure.DisplayName) + ", ");
             }
 
             var measuresString = measures.ToString();
