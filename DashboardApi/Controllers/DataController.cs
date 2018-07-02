@@ -114,6 +114,7 @@ namespace DashboardApi.Controllers
         public IEnumerable<dynamic> GetData(WidgetModel widgetModel)
         {
             IEnumerable<dynamic> data = null;
+            Query query = null;
             var connection = new MySqlConnection(
              "Host=localhost;Port=3306;User=root;Password=root123;Database=adventureworks;SslMode=None"
             );
@@ -121,26 +122,91 @@ namespace DashboardApi.Controllers
 
             //if (widgetModel.Type == "kpi"){
             var measures = new System.Text.StringBuilder();
-            
-            foreach(var measure in widgetModel.Measure)
+            if (widgetModel.Type == "kpi" && (null == widgetModel.Measure || (null != widgetModel.Measure && widgetModel.Measure.Length ==0)))
             {
-               // var expDisplayName = !string.IsNullOrWhiteSpace(measure.DisplayName) ? measure.DisplayName : '[' + measure.Expression + ']';
-                if (!string.IsNullOrWhiteSpace(measure.DisplayName))
+                return null;
+            }
+            if (widgetModel.Type == "filter" && (null == widgetModel.Dimension || (null != widgetModel.Dimension && widgetModel.Dimension.Length == 0)))
+            {
+                return null;
+            }
+
+            var measuresString = string.Empty;
+            var dimString = string.Empty;
+
+            if (null != widgetModel.Measure)
+            {
+                foreach (var measure in widgetModel.Measure)
                 {
-                    measures.Append(string.Format("{0} as {1} ", measure.Expression, measure.DisplayName) + ", ");
+                    // var expDisplayName = !string.IsNullOrWhiteSpace(measure.DisplayName) ? measure.DisplayName : '[' + measure.Expression + ']';
+                    if (!string.IsNullOrWhiteSpace(measure.DisplayName))
+                    {
+                        measures.Append(string.Format("{0} as {1} ", measure.Expression.Trim(), measure.DisplayName.Trim()) + ", ");
+                    }
+                    else
+                    {
+                        measures.Append(string.Format("{0} ", measure.Expression.Trim()) + ", ");
+                    }
+
+                }
+
+                measuresString = measures.ToString();
+                measuresString = measuresString.Remove(measuresString.LastIndexOf(','), 1);
+            }
+            
+
+            var dims = new System.Text.StringBuilder();
+
+            if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0)
+            {
+                foreach (var dim in widgetModel.Dimension)
+                {
+                    // var expDisplayName = !string.IsNullOrWhiteSpace(measure.DisplayName) ? measure.DisplayName : '[' + measure.Expression + ']';
+                    if (!string.IsNullOrWhiteSpace(dim.Name))
+                    {
+                        dims.Append(dim.Name.Trim() + ",");
+                    }                    
+                }
+                dimString = dims.ToString();
+                dimString = dimString.Remove(dimString.LastIndexOf(','), 1);
+            }
+
+         
+            //Todo: widgetModel.SqlTableName
+            if (widgetModel.Type == "filter")
+                {
+                    query = db.Query("employee").Select(dimString).Distinct();
+                    //data = db.Query("employee").Select(dimString).Distinct().Get();
+                   
                 } else
+                    {
+                        query = db.Query("employee").SelectRaw(measuresString);
+                        //data = db.Query("employee").SelectRaw(measuresString).Get();
+                }
+            var constraints = new Dictionary<string, object>();
+            
+
+            if (null != widgetModel.FilterList && widgetModel.FilterList.Count() > 0)
+            {
+                foreach(var filter in widgetModel.FilterList)
                 {
-                    measures.Append(string.Format("{0} ", measure.Expression) + ", ");
+                   // constraints.Add(filter.ColName, filter.Values.to);
+                    query = query.WhereIn(filter.ColName, filter.Values);
                 }
                 
             }
 
-            var measuresString = measures.ToString();
-            measuresString = measuresString.Remove(measuresString.LastIndexOf(','), 1);
-                //Todo: widgetModel.SqlTableName
-                data = db.Query("employee").SelectRaw(measuresString).Get();
+            data = query.Get();
+
+            //var constraints = new Dictionary<string, object> {
+            //                    { "Year", 2017 },
+            //                    { "CategoryId", 198 },
+            //                    { "IsPublished", true }
+            //                };
+
+
             //}
-            
+
             //SqlResult result = compiler.Compile(query);
 
             //var users = new XQuery(connection, compiler).From("Users").Limit(10).Get();
