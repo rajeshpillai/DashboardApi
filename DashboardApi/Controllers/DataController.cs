@@ -16,7 +16,7 @@ namespace DashboardApi.Controllers
     [EnableCors(origins: "*", headers: "*", methods: "*")]
     public class DataController : ApiController
     {
-
+        static object PageData = null;
 
         // GET: api/Data       
         [HttpGet]
@@ -234,6 +234,20 @@ namespace DashboardApi.Controllers
         // DELETE: api/Data/5
         public void Delete(int id)
         {
+        }
+
+        [Route("api/data/savePageData")]
+        [HttpPost]
+        public void SavePageData(object data)
+        {
+            PageData = data;
+        }
+
+        [Route("api/data/getPageData")]
+        [HttpPost]
+        public object GetPageData()
+        {
+           return PageData;
         }
     }
 }
