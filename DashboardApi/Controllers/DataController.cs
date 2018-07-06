@@ -51,6 +51,31 @@ namespace DashboardApi.Controllers
             );
             var db = new QueryFactory(connection, new MySqlCompiler());
 
+            var associations = GetAllTableAssociations();
+
+
+            int count = 0;
+            Query query = null;
+            foreach (var a in associations)
+            {
+                if (count == 0)
+                {
+                    query = db.Query(a.TableName);
+                }
+
+                foreach (var relation in a.Relations)
+                {
+                    query = query.Join(relation.TableName2, relation.Keys[0], relation.Keys[1], relation.Operation, relation.Type);
+                }
+
+                count++;
+            }
+
+            ///db.Query("Product").Join("ProductInventory", "Product.ProductId", "ProductInventory.ProductId", "=", "inner").Select("Product.Name");
+
+            var data = query.Get();
+
+            //var data =  db.Query("Product").Join("ProductInventory", "Product.ProductId", "ProductInventory.ProductId", "=", "inner").Select("Product.Name").Get();
 
             var employees = db.Query("employee").Get();
 
@@ -107,6 +132,128 @@ namespace DashboardApi.Controllers
         //    return evaluatedExp;
         //}
 
+        public Query GetTablesAssociationQuery(WidgetModel widgetModel)
+        {
+
+            var connection = new MySqlConnection(
+             "Host=localhost;Port=3306;User=root;Password=root123;Database=adventureworks;SslMode=None"
+            );
+            var db = new QueryFactory(connection, new MySqlCompiler());
+            Query query = null;
+
+            var tables = GetTablesInvolved(widgetModel);
+
+            if (null != tables && tables.Count > 0)
+            {
+
+
+                var allAssociations = GetAllTableAssociations();
+
+                var tablesConsidered = new List<string>();
+                tablesConsidered.Add(tables[0]);
+                query = db.Query(tables[0]);
+                for (var i = 0; i < tables.Count; i++)
+                {
+                    var association = allAssociations.Where(a => a.TableName == tables[i]).FirstOrDefault();
+                    foreach (var rel in association.Relations)
+                    {
+                        if (tables.Contains(rel.TableName2) && !tablesConsidered.Contains(rel.TableName2))
+                        {
+                            //consider it
+                            query = query.Join(rel.TableName2, rel.Keys[0], rel.Keys[1], rel.Operation, rel.Type);
+                            tablesConsidered.Add(rel.TableName2);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                if (widgetModel.Type == "filter" && widgetModel.FilterList.Count == 0)
+                {
+                    //Do not joing on any other table.
+                    //Select from table of dimention only
+                    var dimName = widgetModel.Dimension[0].Name;
+                    var tableName = dimName.Substring(0, dimName.IndexOf("."));
+                    query = db.Query(tableName);
+                }
+                //else
+                //{
+
+                //    int count = 0;
+
+                //    foreach (var a in allAssociations)
+                //    {
+                //        if (count == 0)
+                //        {
+                //            query = db.Query(a.TableName);
+                //        }
+
+                //        foreach (var relation in a.Relations)
+                //        {
+                //            query = query.Join(relation.TableName2, relation.Keys[0], relation.Keys[1], relation.Operation, relation.Type);
+                //        }
+
+                //        count++;
+                //    }
+                //}
+            }
+            
+
+            return query;
+        }
+
+        private List<string> GetTablesInvolved(WidgetModel widgetModel)
+        {
+            List<string> tables = new List<string>();
+
+            if(null != widgetModel.Dimension && widgetModel.Dimension.Count() > 0)
+            {
+                foreach(var dim in widgetModel.Dimension)
+                {
+                    var dimName = dim.Name;
+                    var tableName = dimName.Substring(0, dimName.IndexOf("."));
+                    if (!tables.Contains(tableName))
+                    {
+                        tables.Add(tableName);
+                    }
+                }
+            }
+
+            if (null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
+            {
+                var replacementStrings = new string[5] { "sum", "count", "avg", "(", ")" };
+                foreach (var measure in widgetModel.Measure)
+                {                    
+                    var expression = measure.Expression;
+                    foreach(var r in replacementStrings)
+                    {
+                        expression =  expression.Replace(r, "");
+                    }
+                    expression = expression.Trim();
+                    //var measure = dim.Name;
+                    var tableName = expression.Substring(0, expression.IndexOf("."));
+                    if (!tables.Contains(tableName))
+                    {
+                        tables.Add(tableName);
+                    }
+                }
+            }
+
+            if (null != widgetModel.FilterList && widgetModel.FilterList.Count() > 0)
+            {
+                foreach (var filter in widgetModel.FilterList)
+                {
+                    var colName = filter.ColName;
+                    var tableName = colName.Substring(0, colName.IndexOf("."));
+                    if (!tables.Contains(tableName))
+                    {
+                        tables.Add(tableName);
+                    }
+                }
+            }
+
+            return tables;
+        }
 
         // GET: api/Data
         [Route("api/data/getData")]
@@ -164,23 +311,37 @@ namespace DashboardApi.Controllers
                     // var expDisplayName = !string.IsNullOrWhiteSpace(measure.DisplayName) ? measure.DisplayName : '[' + measure.Expression + ']';
                     if (!string.IsNullOrWhiteSpace(dim.Name))
                     {
-                        dims.Append(dim.Name.Trim() + ",");
+                        dims.Append(dim.Name.Trim() + " as '" + dim.Name.Trim() + "',");
                     }                    
                 }
                 dimString = dims.ToString();
                 dimString = dimString.Remove(dimString.LastIndexOf(','), 1);
             }
 
-         
+            query = GetTablesAssociationQuery(widgetModel);
+
             //Todo: widgetModel.SqlTableName
             if (widgetModel.Type == "filter")
                 {
-                    query = db.Query("employee").Select(dimString).Distinct();
+                    query = query.Select(dimString).Distinct();
                     //data = db.Query("employee").Select(dimString).Distinct().Get();
                    
-                } else
+                } else //if (widgetModel.Type == "kpi")
+                {
+                    if (!string.IsNullOrWhiteSpace(dimString))
                     {
-                        query = db.Query("employee").SelectRaw(measuresString);
+                        query = query.SelectRaw(dimString);
+                    }
+                    if (!string.IsNullOrWhiteSpace(measuresString))
+                    {
+                        query = query.SelectRaw(measuresString);
+                    }
+
+                    if(!string.IsNullOrWhiteSpace(dimString)  && !string.IsNullOrWhiteSpace(measuresString))
+                    {
+                        query = query.GroupBy(new string[1] { widgetModel.Dimension[0].Name });
+                    }
+                
                         //data = db.Query("employee").SelectRaw(measuresString).Get();
                 }
             var constraints = new Dictionary<string, object>();
@@ -215,6 +376,8 @@ namespace DashboardApi.Controllers
             return data;
         }
 
+
+
         // GET: api/Data/5
         public string Get(int id)
         {
@@ -248,6 +411,65 @@ namespace DashboardApi.Controllers
         public object GetPageData()
         {
            return PageData;
+        }
+
+
+        //private List<string> GetTables(WidgetModel widgetModel)
+        //{
+        //    var tables = new List<string>();
+        //    if(null != widgetModel.Measure && widgetModel.Measure.Length > 0)
+        //    {
+        //        foreach(var measure in widgetModel.Measure)
+        //        {
+        //            var tableName = 
+        //        }
+        //    }
+
+        //    return tables;
+        //}
+
+        private static List<Association> GetAllTableAssociations()
+        {
+            var associations = new List<Association>();
+
+            var association = new Association();
+
+            association.TableName = "Product";
+            var relations = new List<Relation>();
+            var rel = new Relation() { TableName2 = "ProductInventory", Type = "left" };          
+            var keys = new List<string>();
+            keys.Add("Product.ProductId");
+            keys.Add("ProductInventory.ProductId");
+            rel.Keys = keys;
+            rel.Operation = "=";
+            relations.Add(rel);
+            var rel2 = new Relation() { TableName2 = "ProductVendor", Type = "left" };
+            var keys2 = new List<string>();
+            keys2.Add("Product.ProductId");
+            keys2.Add("ProductVendor.ProductId");
+            rel2.Keys = keys2;
+            rel2.Operation = "=";
+            relations.Add(rel2);
+            association.Relations = relations;
+            associations.Add(association);
+
+            association = new Association();
+
+            association.TableName = "ProductInventory";
+            relations = new List<Relation>();
+            rel = new Relation() { TableName2 = "Product", Type = "left" };
+            keys = new List<string>();
+            keys.Add("Product.ProductId");
+            keys.Add("ProductInventory.ProductId");
+            rel.Keys = keys;
+            rel.Operation = "=";
+            relations.Add(rel);
+            association.Relations = relations;
+            associations.Add(association);
+
+
+            return associations;
+
         }
     }
 }
