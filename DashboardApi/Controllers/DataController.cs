@@ -146,7 +146,6 @@ namespace DashboardApi.Controllers
             if (null != tables && tables.Count > 0)
             {
 
-
                 var allAssociations = GetAllTableAssociations();
 
                 var tablesConsidered = new List<string>();
@@ -155,15 +154,19 @@ namespace DashboardApi.Controllers
                 for (var i = 0; i < tables.Count; i++)
                 {
                     var association = allAssociations.Where(a => a.TableName == tables[i]).FirstOrDefault();
-                    foreach (var rel in association.Relations)
+                    if(null != association)
                     {
-                        if (tables.Contains(rel.TableName2) && !tablesConsidered.Contains(rel.TableName2))
+                        foreach (var rel in association.Relations)
                         {
-                            //consider it
-                            query = query.Join(rel.TableName2, rel.Keys[0], rel.Keys[1], rel.Operation, rel.Type);
-                            tablesConsidered.Add(rel.TableName2);
+                            if (tables.Contains(rel.TableName2) && !tablesConsidered.Contains(rel.TableName2))
+                            {
+                                //consider it
+                                query = query.Join(rel.TableName2, rel.Keys[0], rel.Keys[1], rel.Operation, rel.Type);
+                                tablesConsidered.Add(rel.TableName2);
+                            }
                         }
                     }
+                   
                 }
             }
             else
@@ -223,8 +226,9 @@ namespace DashboardApi.Controllers
             {
                 var replacementStrings = new string[5] { "sum", "count", "avg", "(", ")" };
                 foreach (var measure in widgetModel.Measure)
-                {                    
+                {
                     var expression = measure.Expression;
+                    if (string.IsNullOrWhiteSpace(expression)) { continue; }
                     foreach(var r in replacementStrings)
                     {
                         expression =  expression.Replace(r, "");
@@ -245,6 +249,7 @@ namespace DashboardApi.Controllers
                 {
                     var colName = filter.ColName;
                     var tableName = colName.Substring(0, colName.IndexOf("."));
+                    filter.TableName = tableName;
                     if (!tables.Contains(tableName))
                     {
                         tables.Add(tableName);
@@ -285,6 +290,8 @@ namespace DashboardApi.Controllers
             {
                 foreach (var measure in widgetModel.Measure)
                 {
+                    if (string.IsNullOrWhiteSpace(measure.Expression)) { continue; }
+
                     // var expDisplayName = !string.IsNullOrWhiteSpace(measure.DisplayName) ? measure.DisplayName : '[' + measure.Expression + ']';
                     if (!string.IsNullOrWhiteSpace(measure.DisplayName))
                     {
@@ -339,7 +346,8 @@ namespace DashboardApi.Controllers
 
                     if(!string.IsNullOrWhiteSpace(dimString)  && !string.IsNullOrWhiteSpace(measuresString))
                     {
-                        query = query.GroupBy(new string[1] { widgetModel.Dimension[0].Name });
+                    
+                        query = query.GroupBy( widgetModel.Dimension.Select(d => d.Name).ToArray<string>());
                     }
                 
                         //data = db.Query("employee").SelectRaw(measuresString).Get();

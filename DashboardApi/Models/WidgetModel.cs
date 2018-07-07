@@ -194,6 +194,8 @@ namespace DashboardApi.Models
                 _operType = value;
             }
         }
+
+        public string TableName { get; set; }
     }
 
     public class Search
@@ -202,4 +204,10 @@ namespace DashboardApi.Models
 
         public string Value { get; set; }
     }
+
+    //public class Table
+    //{
+    //    public string MyProperty { get; set; }
+    //    public bool IsAssociationExist { get; set; }
+    //}
 }
