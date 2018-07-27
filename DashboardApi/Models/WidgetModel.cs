@@ -29,11 +29,13 @@ namespace DashboardApi.Models
 
         public bool ShowTotal { get; set; }
 
-        public bool IsEnablePaging { get; set; }
+        public bool EnablePagination { get; set; }
+
+        public bool IsRecordCountReq { get; set; }
 
         public int StartRowNum { get; set; }
 
-        public int LastRowNum { get; set; }
+        public int PageSize { get; set; }
 
         public bool ShowTotalRowCount { get; set; }
 
@@ -56,6 +58,8 @@ namespace DashboardApi.Models
                 _sqlTableName = value;
             }
         }
+
+        public string[] AllColumns { get; set; }
     }
 
 

@@ -10,6 +10,12 @@ using MySql.Data.MySqlClient;
 using SqlKata.Execution;
 using System.Web.Http.Cors;
 using DashboardApi.Models;
+using System.Runtime.Caching;
+using System.Data.Odbc;
+using MonetDB.Driver.Data;
+using MonetDB.Driver;
+using MonetDB.Driver.Extensions;
+using System.Net.Http;
 
 namespace DashboardApi.Controllers
 {
@@ -20,7 +26,143 @@ namespace DashboardApi.Controllers
 
         Dashboard dashboard = null;
 
-        
+
+        // GET: api/Data
+        [Route("api/data/getsalary")]
+        [HttpGet]
+        public dynamic GetSalary()
+        {
+            // var connection = new System.Data.Odbc.OdbcConnection("Driver={MonetDB ODBC Driver};HOST=127.0.0.1;PORT=50000; Database=demo;UID=monetdb; PWD=monetdb");
+
+            // var connection = new System.Data.Odbc.OdbcConnection("Dsn=testmonetdb;HOST=127.0.0.1;PORT=50000; Database=demo;UID=monetdb; PWD=monetdb");
+            //System.Data.Odbc.OdbcException
+            //            HResult = 0x80131937
+            //  Message = ERROR[IM002][Microsoft][ODBC Driver Manager] Data source name not found and no default driver specified
+            //  Source =
+            //  StackTrace:
+            //< Cannot evaluate the exception stack trace >
+
+            // var driver = new MonetDB.Driver.MonetDbDriver("database=demo;host=127.0.0.1;");
+            // var ConnectionInfo = driver.Database.ConnectionInfo;
+            //var result = MonetDB.Driver.Helpers.MonetDbHelper.ExecuteScalar(ConnectionInfo.ToString(), "select count(*) from skills");
+
+
+            ////var connection = new MySqlConnection(
+            //// "Host=localhost;Port=3306;User=root;Password=root123;Database=adventureworks;SslMode=None"
+            ////);
+
+            //working start *********************
+            System.Data.DataSet ds = new System.Data.DataSet();
+            var dt = new System.Data.DataTable("Test");
+            dt.Columns.Add("city");
+            dt.Columns.Add("sum(salary)");
+            using (var connection = new System.Data.MonetDb.MonetDbConnection("database=demo;host=127.0.0.1;PORT=50000;username=monetdb;password=monetdb"))
+            {
+
+
+
+                connection.Open();
+                
+                
+                using (var command = connection.CreateCommand())
+                {
+                    // create table
+                    command.CommandText = "SELECT city, sum(salary) FROM employee group by city";
+
+                    using (var reader = command.ExecuteReader())
+                    {
+                        //ds = reader.ToDateSet();
+                        while (reader.Read())
+                        {
+                            var values = new object[reader.FieldCount];
+
+                            reader.GetValues(values);
+                            dt.Rows.Add(values);
+                            
+
+                            //var ename = reader[0];
+                            //var salary = reader[1];
+                            //var schema = reader.GetSchemaTable();
+                            //var t1 = schema.Columns.Contains("ename");
+                            //var t2 = schema.Columns.Contains("value");
+                            //var t3 = schema.Columns["ename"].DataType;
+                            //var t4 = schema.Columns["value"].DataType;
+                        }
+                    }
+                    ds.Tables.Add(dt);
+                }
+
+
+                //using (var command = new System.Data.MonetDb.MonetDbCommand(connection)
+                //{
+                //    CommandText = "SELECT ename, salary FROM employee WHERE empid = 1"
+                //})
+                //{
+                //    using (var reader = command.ExecuteReader())
+                //    {
+                //        ds = reader.ToDateSet();
+                //    }
+                //}
+
+                connection.Close();
+            }
+
+            //ds.Tables[0].ToString();
+
+            System.Web.Script.Serialization.JavaScriptSerializer serializer = new System.Web.Script.Serialization.JavaScriptSerializer();
+            List<Dictionary<string, object>> rows = new List<Dictionary<string, object>>();
+            Dictionary<string, object> row;
+            //var dt = ds.Tables[0];
+            foreach (System.Data.DataRow dr in dt.Rows)
+            {
+                row = new Dictionary<string, object>();
+                foreach (System.Data.DataColumn col in dt.Columns)
+                {
+                    row.Add(col.ColumnName, dr[col]);
+                }
+                rows.Add(row);
+            }
+            //var tt = Json(serializer.Serialize(rows));
+            return Json(rows);
+            //working end *********************
+
+            //return ds;
+
+            //using (OdbcConnection con = new OdbcConnection("database=demo;host=127.0.0.1;"))
+            //{
+
+            //    con.Open();
+            //    // We are now connected. Now we can use OdbcCommand objects
+            //    // to actually accomplish things.
+            //    using (OdbcCommand com = new OdbcCommand("SELECT ename, salary FROM employee WHERE empid = 1", con))
+            //    {
+            //        using (OdbcDataReader reader = com.ExecuteReader())
+            //        {
+            //            while (reader.Read())
+            //            {
+            //                string word = reader.GetString(0);
+            //                // Word is from the database. Do something with it.
+            //            }
+            //        }
+            //    }
+            //}
+
+
+
+
+            //var connection = new System.Data.MonetDb.MonetDbConnection("database=demo;host=127.0.0.1;PORT=50000;username=monetdb;password=monetdb");
+            //var db = new QueryFactory(connection, new MySqlCompiler());
+
+            //var employees = db.Query("employee").Where("empid", 1).Select("ename", "salary").Get();
+
+            //////SqlResult result = compiler.Compile(query);
+
+            //////var users = new XQuery(connection, compiler).From("Users").Limit(10).Get();
+
+           // return new List<string>();
+
+            //return employees;
+        }
 
         // GET: api/Data       
         [HttpGet]
@@ -30,6 +172,9 @@ namespace DashboardApi.Controllers
             var connection = new MySqlConnection(
              "Host=localhost;Port=3306;User=root;Password=root123;Database=adventureworks;SslMode=None"
             );
+
+
+
             var db = new QueryFactory(connection, new MySqlCompiler());
 
        
@@ -45,12 +190,21 @@ namespace DashboardApi.Controllers
 
         private void BuildTableMetatdata()
         {
-            dashboard = new Dashboard();            
-            dashboard.AddTable(new Table() { Name = "Product" });
-            dashboard.AddTable(new Table() { Name = "ProductInventory" });
-            dashboard.AddTable(new Table() { Name = "ProductVendor" });
-            dashboard.AddTable(new Table() { Name = "PurchaseOrderDetail" });
-            dashboard.AddTable(new Table() { Name = "PurchaseOrderHeader" });
+            dashboard = new Dashboard();
+
+            if (null != MemoryCache.Default.Get("dashboard",null)){
+                dashboard = MemoryCache.Default.Get("dashboard", null) as Dashboard;
+                return;
+            }
+
+            //dashboard.AddTable(new Table() { Name = "Product" });
+            //dashboard.AddTable(new Table() { Name = "ProductInventory" });
+            //dashboard.AddTable(new Table() { Name = "ProductVendor" });
+            //dashboard.AddTable(new Table() { Name = "PurchaseOrderDetail" });
+            //dashboard.AddTable(new Table() { Name = "PurchaseOrderHeader" });
+
+            dashboard.AddTable(new Table() { Name = "employee" });
+            dashboard.AddTable(new Table() { Name = "skills" });            
 
             dashboard.Associations = GetAllTableAssociations();
 
@@ -168,6 +322,8 @@ namespace DashboardApi.Controllers
             }
 
             dashboard.TableAssociationHash = TableAssociationHash;
+
+            MemoryCache.Default.Set("dashboard", dashboard, null,null);
 
         }
 
@@ -418,10 +574,121 @@ namespace DashboardApi.Controllers
             return tableKey;
         }
 
+
         // GET: api/Data
         [Route("api/data/getData")]
         [HttpPost]
-        public IEnumerable<dynamic> GetData(WidgetModel widgetModel)
+        public dynamic GetData(WidgetModel widgetModel)
+        {
+            BuildTableMetatdata();
+
+            if (widgetModel.Type == "kpi" && (null == widgetModel.Measure || (null != widgetModel.Measure && widgetModel.Measure.Length == 0)))
+            {
+                return null;
+            }
+            if (widgetModel.Type == "filter" && (null == widgetModel.Dimension || (null != widgetModel.Dimension && widgetModel.Dimension.Length == 0)))
+            {
+                return null;
+            }
+
+            var queryEngine = new QueryEngine(dashboard);
+            var query = queryEngine.BuildQuery(widgetModel);
+
+            if(null == query)
+            {
+                return null;
+            }
+
+
+            using (var client = new WebClient())
+            {
+                var values = new System.Collections.Specialized.NameValueCollection();
+                values["equery"] = query;
+               
+                var response = client.UploadValues("http://localhost:4000/getdata","POST", values);
+
+                var responseString = System.Text.Encoding.Default.GetString(response);
+
+                return Newtonsoft.Json.Linq.JArray.Parse(responseString);
+               //var t  =Json<string>(responseString);
+               // t.Content
+            }
+
+            //var dt = QueryExecuteEngine.ExecuteQuery(query, widgetModel.AllColumns);
+
+            //var data = GetJsonObjectFromTable(dt);
+
+            //return data;
+            //return "";
+        }
+
+        [Route("api/data/getTotalRecordsCount")]
+        [HttpPost]
+        public dynamic GetTotalRecordsCount(WidgetModel widgetModel)
+        {
+            var recordsCount = 0;
+            BuildTableMetatdata();
+
+            if (widgetModel.Type == "kpi" && (null == widgetModel.Measure || (null != widgetModel.Measure && widgetModel.Measure.Length == 0)))
+            {
+                return null;
+            }
+            if (widgetModel.Type == "filter" && (null == widgetModel.Dimension || (null != widgetModel.Dimension && widgetModel.Dimension.Length == 0)))
+            {
+                return null;
+            }
+
+            widgetModel.IsRecordCountReq = true;
+
+            var queryEngine = new QueryEngine(dashboard);
+            var query = queryEngine.BuildTotalRecordsCountQuery(widgetModel);
+
+            if (null == query)
+            {
+                return null;
+            }
+            using (var client = new WebClient())
+            {
+                var values = new System.Collections.Specialized.NameValueCollection();
+                values["equery"] = query;
+
+                var response = client.UploadValues("http://localhost:4000/getdata", "POST", values);
+
+                var responseString = System.Text.Encoding.Default.GetString(response);
+
+                return Newtonsoft.Json.Linq.JArray.Parse(responseString);
+                //var t  =Json<string>(responseString);
+                // t.Content
+            }
+
+            return recordsCount;
+        }
+
+
+        private dynamic GetJsonObjectFromTable(System.Data.DataTable dt)
+        {
+            System.Web.Script.Serialization.JavaScriptSerializer serializer = new System.Web.Script.Serialization.JavaScriptSerializer();
+            List<Dictionary<string, object>> rows = new List<Dictionary<string, object>>();
+            Dictionary<string, object> row;
+            //var dt = ds.Tables[0];
+            foreach (System.Data.DataRow dr in dt.Rows)
+            {
+                row = new Dictionary<string, object>();
+                foreach (System.Data.DataColumn col in dt.Columns)
+                {
+                    row.Add(col.ColumnName.Trim(), dr[col].ToString().Trim('"'));
+                }
+                rows.Add(row);
+            }
+            //var tt = Json(serializer.Serialize(rows));
+            return Json(rows);
+        }
+
+
+        // GET: api/Data
+        [Route("api/data/getDataWorkingWithMaridDB")]
+        [HttpPost]
+        public IEnumerable<dynamic> GetDataWorkingWithMariaDB(WidgetModel widgetModel)
         {
             BuildTableMetatdata();
 
@@ -585,45 +852,16 @@ namespace DashboardApi.Controllers
         //}
 
         private static List<Association> GetAllTableAssociations()
-        {
-            
+        {            
             var associations = new List<Association>();
-
             var association = new Association();
-
-            association.TableName = "Product";
+            
+            association.TableName = "employee";
             var relations = new List<Relation>();
-            var rel = new Relation() { TableName2 = "ProductInventory", Type = "left" };          
+            var rel = new Relation() { TableName2 = "skills", Type = "left" };
             var keys = new List<string>();
-            keys.Add("Product.ProductId");
-            keys.Add("ProductInventory.ProductId");
-            rel.Keys = keys;
-            rel.Operation = "=";
-            relations.Add(rel);
-            var rel2 = new Relation() { TableName2 = "ProductVendor", Type = "left" };
-            var keys2 = new List<string>();
-            keys2.Add("Product.ProductId");
-            keys2.Add("ProductVendor.ProductId");
-            rel2.Keys = keys2;
-            rel2.Operation = "=";
-            relations.Add(rel2);
-            rel2 = new Relation() { TableName2 = "PurchaseOrderDetail", Type = "left" };
-            keys2 = new List<string>();
-            keys2.Add("Product.ProductId");
-            keys2.Add("PurchaseOrderDetail.ProductId");
-            rel2.Keys = keys2;
-            rel2.Operation = "=";
-            relations.Add(rel2);
-            association.Relations = relations;
-            associations.Add(association);
-
-            association = new Association();
-            association.TableName = "ProductInventory";
-            relations = new List<Relation>();
-            rel = new Relation() { TableName2 = "Product", Type = "left" };
-            keys = new List<string>();
-            keys.Add("Product.ProductId");
-            keys.Add("ProductInventory.ProductId");
+            keys.Add("employee.empid");
+            keys.Add("skills.empid");
             rel.Keys = keys;
             rel.Operation = "=";
             relations.Add(rel);
@@ -631,46 +869,95 @@ namespace DashboardApi.Controllers
             associations.Add(association);
 
             association = new Association();
-            association.TableName = "ProductVendor";
+            association.TableName = "Skills";
             relations = new List<Relation>();
-            rel = new Relation() { TableName2 = "Product", Type = "left" };
+            rel = new Relation() { TableName2 = "employee", Type = "left" };
             keys = new List<string>();
-            keys.Add("Product.ProductId");
-            keys.Add("ProductVendor.ProductId");
+            keys.Add("employee.empid");
+            keys.Add("skills.empid");
             rel.Keys = keys;
             rel.Operation = "=";
             relations.Add(rel);
             association.Relations = relations;
             associations.Add(association);
 
-            association = new Association();
-            association.TableName = "PurchaseOrderDetail";
-            relations = new List<Relation>();
-            rel = new Relation() { TableName2 = "PurchaseOrderHeader", Type = "left" };
-            keys = new List<string>();
-            keys.Add("PurchaseOrderDetail.PurchaseOrderId");
-            keys.Add("PurchaseOrderHeader.PurchaseOrderId");
-            rel.Keys = keys;
-            rel.Operation = "=";
-            relations.Add(rel);
-            association.Relations = relations;
-            associations.Add(association);
+            //association.TableName = "Product";
+            //var relations = new List<Relation>();
+            //var rel = new Relation() { TableName2 = "ProductInventory", Type = "left" };          
+            //var keys = new List<string>();
+            //keys.Add("Product.ProductId");
+            //keys.Add("ProductInventory.ProductId");
+            //rel.Keys = keys;
+            //rel.Operation = "=";
+            //relations.Add(rel);
+            //var rel2 = new Relation() { TableName2 = "ProductVendor", Type = "left" };
+            //var keys2 = new List<string>();
+            //keys2.Add("Product.ProductId");
+            //keys2.Add("ProductVendor.ProductId");
+            //rel2.Keys = keys2;
+            //rel2.Operation = "=";
+            //relations.Add(rel2);
+            //rel2 = new Relation() { TableName2 = "PurchaseOrderDetail", Type = "left" };
+            //keys2 = new List<string>();
+            //keys2.Add("Product.ProductId");
+            //keys2.Add("PurchaseOrderDetail.ProductId");
+            //rel2.Keys = keys2;
+            //rel2.Operation = "=";
+            //relations.Add(rel2);
+            //association.Relations = relations;
+            //associations.Add(association);
 
-            association = new Association();
-            association.TableName = "PurchaseOrderHeader";
-            relations = new List<Relation>();
-            rel = new Relation() { TableName2 = "PurchaseOrderDetail", Type = "left" };
-            keys = new List<string>();
-            keys.Add("PurchaseOrderDetail.PurchaseOrderId");
-            keys.Add("PurchaseOrderHeader.PurchaseOrderId");
-            rel.Keys = keys;
-            rel.Operation = "=";
-            relations.Add(rel);
-            association.Relations = relations;
-            associations.Add(association);
+            //association = new Association();
+            //association.TableName = "ProductInventory";
+            //relations = new List<Relation>();
+            //rel = new Relation() { TableName2 = "Product", Type = "left" };
+            //keys = new List<string>();
+            //keys.Add("Product.ProductId");
+            //keys.Add("ProductInventory.ProductId");
+            //rel.Keys = keys;
+            //rel.Operation = "=";
+            //relations.Add(rel);
+            //association.Relations = relations;
+            //associations.Add(association);
 
+            //association = new Association();
+            //association.TableName = "ProductVendor";
+            //relations = new List<Relation>();
+            //rel = new Relation() { TableName2 = "Product", Type = "left" };
+            //keys = new List<string>();
+            //keys.Add("Product.ProductId");
+            //keys.Add("ProductVendor.ProductId");
+            //rel.Keys = keys;
+            //rel.Operation = "=";
+            //relations.Add(rel);
+            //association.Relations = relations;
+            //associations.Add(association);
 
+            //association = new Association();
+            //association.TableName = "PurchaseOrderDetail";
+            //relations = new List<Relation>();
+            //rel = new Relation() { TableName2 = "PurchaseOrderHeader", Type = "left" };
+            //keys = new List<string>();
+            //keys.Add("PurchaseOrderDetail.PurchaseOrderId");
+            //keys.Add("PurchaseOrderHeader.PurchaseOrderId");
+            //rel.Keys = keys;
+            //rel.Operation = "=";
+            //relations.Add(rel);
+            //association.Relations = relations;
+            //associations.Add(association);
 
+            //association = new Association();
+            //association.TableName = "PurchaseOrderHeader";
+            //relations = new List<Relation>();
+            //rel = new Relation() { TableName2 = "PurchaseOrderDetail", Type = "left" };
+            //keys = new List<string>();
+            //keys.Add("PurchaseOrderDetail.PurchaseOrderId");
+            //keys.Add("PurchaseOrderHeader.PurchaseOrderId");
+            //rel.Keys = keys;
+            //rel.Operation = "=";
+            //relations.Add(rel);
+            //association.Relations = relations;
+            //associations.Add(association);
 
             return associations;
 
