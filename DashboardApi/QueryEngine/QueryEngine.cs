@@ -181,6 +181,8 @@ namespace DashboardApi
                 query += " limit " + widgetModel.PageSize + " offset " + widgetModel.StartRowNum;
             }
 
+            //query += " limit 1000" + " offset 0";
+
             return query;
         }
 
