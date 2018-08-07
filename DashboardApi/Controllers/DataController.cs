@@ -353,7 +353,11 @@ namespace DashboardApi.Controllers
 
                 foreach (var relation in a.Relations)
                 {
-                    query = query.Join(relation.TableName2, relation.Keys[0], relation.Keys[1], relation.Operation, relation.Type);
+                    foreach(var keys in relation.Keys)
+                    {
+                        query = query.Join(relation.TableName2, keys[0], keys[1], relation.Operation, relation.Type);
+                    }
+                    
                 }
 
                 count++;
@@ -443,7 +447,11 @@ namespace DashboardApi.Controllers
                     query = db.Query(derivedAssociation.TableName1);
                     foreach (var rel in derivedAssociation.Relations)
                     {
-                        query = query.Join(rel.TableName2, rel.Keys[0], rel.Keys[1], rel.Operation, rel.Type);
+                        foreach (var keys in rel.Keys)
+                        {
+                            query = query.Join(rel.TableName2, keys[0], keys[1], rel.Operation, rel.Type);
+                        }
+                        
                     }
                 }
             } else
@@ -599,20 +607,21 @@ namespace DashboardApi.Controllers
                 return null;
             }
 
+            return GetDataFromDB(query);
 
-            using (var client = new WebClient())
-            {
-                var values = new System.Collections.Specialized.NameValueCollection();
-                values["equery"] = query;
-               
-                var response = client.UploadValues("http://localhost:4000/getdata","POST", values);
+            //using (var client = new WebClient())
+            //{
+            //    var values = new System.Collections.Specialized.NameValueCollection();
+            //    values["equery"] = query;
 
-                var responseString = System.Text.Encoding.Default.GetString(response);
+            //    var response = client.UploadValues("http://localhost:4000/getdata","POST", values);
 
-                return Newtonsoft.Json.Linq.JArray.Parse(responseString);
-               //var t  =Json<string>(responseString);
-               // t.Content
-            }
+            //    var responseString = System.Text.Encoding.Default.GetString(response);
+
+            //    return Newtonsoft.Json.Linq.JArray.Parse(responseString);
+            //   //var t  =Json<string>(responseString);
+            //   // t.Content
+            //}
 
             //var dt = QueryExecuteEngine.ExecuteQuery(query, widgetModel.AllColumns);
 
@@ -622,11 +631,30 @@ namespace DashboardApi.Controllers
             //return "";
         }
 
+        private dynamic GetDataFromDB(string query)
+        {
+            using (var client = new WebClient())
+            {
+                var values = new System.Collections.Specialized.NameValueCollection();
+                values["equery"] = query;
+
+                var response = client.UploadValues("http://localhost:4000/getdata", "POST", values);
+
+                var responseString = System.Text.Encoding.Default.GetString(response);
+
+                return Newtonsoft.Json.Linq.JArray.Parse(responseString);
+                //var t  =Json<string>(responseString);
+                // t.Content
+            }
+        }
+
+
+
         [Route("api/data/getTotalRecordsCount")]
         [HttpPost]
         public dynamic GetTotalRecordsCount(WidgetModel widgetModel)
         {
-            var recordsCount = 0;
+            //var recordsCount = 0;
             BuildTableMetatdata();
 
             if (widgetModel.Type == "kpi" && (null == widgetModel.Measure || (null != widgetModel.Measure && widgetModel.Measure.Length == 0)))
@@ -647,21 +675,23 @@ namespace DashboardApi.Controllers
             {
                 return null;
             }
-            using (var client = new WebClient())
-            {
-                var values = new System.Collections.Specialized.NameValueCollection();
-                values["equery"] = query;
+            //using (var client = new WebClient())
+            //{
+            //    var values = new System.Collections.Specialized.NameValueCollection();
+            //    values["equery"] = query;
 
-                var response = client.UploadValues("http://localhost:4000/getdata", "POST", values);
+            //    var response = client.UploadValues("http://localhost:4000/getdata", "POST", values);
 
-                var responseString = System.Text.Encoding.Default.GetString(response);
+            //    var responseString = System.Text.Encoding.Default.GetString(response);
 
-                return Newtonsoft.Json.Linq.JArray.Parse(responseString);
-                //var t  =Json<string>(responseString);
-                // t.Content
-            }
+            //    return Newtonsoft.Json.Linq.JArray.Parse(responseString);
+            //    //var t  =Json<string>(responseString);
+            //    // t.Content
+            //}
 
-            return recordsCount;
+            return GetDataFromDB(query);
+
+            //return recordsCount;
         }
 
 
@@ -836,6 +866,20 @@ namespace DashboardApi.Controllers
            return PageData;
         }
 
+        [Route("api/data/getTables")]
+        [HttpPost]
+        public dynamic GetTables()
+        {
+            return GetDataFromDB("select tables.name from tables where tables.system=false");
+        }
+
+        [Route("api/data/getColumns")]
+        [HttpGet]
+        public dynamic GetColumns(string tableName)
+        {
+            return GetDataFromDB("select * from sys.columns where table_id = (select id from tables where name ='" + tableName + "')");
+        }
+
 
         //private List<string> GetTables(WidgetModel widgetModel)
         //{
@@ -859,10 +903,11 @@ namespace DashboardApi.Controllers
             association.TableName = "employee1";
             var relations = new List<Relation>();
             var rel = new Relation() { TableName2 = "skills1", Type = "left" };
+            rel.Keys = new List<List<string>>();
             var keys = new List<string>();
             keys.Add("employee1.empid");
             keys.Add("skills1.empid");
-            rel.Keys = keys;
+            rel.Keys.Add(keys);
             rel.Operation = "=";
             relations.Add(rel);
             association.Relations = relations;
@@ -871,11 +916,11 @@ namespace DashboardApi.Controllers
             association = new Association();
             association.TableName = "Skills1";
             relations = new List<Relation>();
-            rel = new Relation() { TableName2 = "employee1", Type = "left" };
+            rel = new Relation() { TableName2 = "employee1", Type = "left" , Keys = new List<List<string>>() };
             keys = new List<string>();
             keys.Add("employee1.empid");
             keys.Add("skills1.empid");
-            rel.Keys = keys;
+            rel.Keys.Add(keys);
             rel.Operation = "=";
             relations.Add(rel);
             association.Relations = relations;

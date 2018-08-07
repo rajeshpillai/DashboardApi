@@ -13,7 +13,7 @@ namespace DashboardApi.Models
 
         public string Operation { get; set; }
 
-        public List<string> Keys { get; set; }
+        public List<List<string>> Keys { get; set; }
 
     }
 
