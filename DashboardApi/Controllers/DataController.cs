@@ -203,8 +203,8 @@ namespace DashboardApi.Controllers
             //dashboard.AddTable(new Table() { Name = "PurchaseOrderDetail" });
             //dashboard.AddTable(new Table() { Name = "PurchaseOrderHeader" });
 
-            dashboard.AddTable(new Table() { Name = "employee" });
-            dashboard.AddTable(new Table() { Name = "skills" });            
+            dashboard.AddTable(new Table() { Name = "employee1" });
+            dashboard.AddTable(new Table() { Name = "skills1" });            
 
             dashboard.Associations = GetAllTableAssociations();
 
@@ -856,12 +856,12 @@ namespace DashboardApi.Controllers
             var associations = new List<Association>();
             var association = new Association();
             
-            association.TableName = "employee";
+            association.TableName = "employee1";
             var relations = new List<Relation>();
-            var rel = new Relation() { TableName2 = "skills", Type = "left" };
+            var rel = new Relation() { TableName2 = "skills1", Type = "left" };
             var keys = new List<string>();
-            keys.Add("employee.empid");
-            keys.Add("skills.empid");
+            keys.Add("employee1.empid");
+            keys.Add("skills1.empid");
             rel.Keys = keys;
             rel.Operation = "=";
             relations.Add(rel);
@@ -869,12 +869,12 @@ namespace DashboardApi.Controllers
             associations.Add(association);
 
             association = new Association();
-            association.TableName = "Skills";
+            association.TableName = "Skills1";
             relations = new List<Relation>();
-            rel = new Relation() { TableName2 = "employee", Type = "left" };
+            rel = new Relation() { TableName2 = "employee1", Type = "left" };
             keys = new List<string>();
-            keys.Add("employee.empid");
-            keys.Add("skills.empid");
+            keys.Add("employee1.empid");
+            keys.Add("skills1.empid");
             rel.Keys = keys;
             rel.Operation = "=";
             relations.Add(rel);

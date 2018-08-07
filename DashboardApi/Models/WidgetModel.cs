@@ -29,6 +29,8 @@ namespace DashboardApi.Models
 
         public bool ShowTotal { get; set; }
 
+        public bool IsForTotal { get; set; }
+
         public bool EnablePagination { get; set; }
 
         public bool IsRecordCountReq { get; set; }
@@ -46,6 +48,7 @@ namespace DashboardApi.Models
         public Measure[] Aggr { get; set; }
 
         public List<FixedFilter> AggrFilter { get; set; }
+       
 
         public string SqlTableName
         {
@@ -214,4 +217,5 @@ namespace DashboardApi.Models
     //    public string MyProperty { get; set; }
     //    public bool IsAssociationExist { get; set; }
     //}
+   
 }

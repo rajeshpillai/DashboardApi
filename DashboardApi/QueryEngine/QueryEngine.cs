@@ -18,10 +18,21 @@ namespace DashboardApi
         public string BuildQuery(WidgetModel widgetModel)
         {
             string query = null;
+            widgetModel.IsForTotal = false;
 
             query = GetSelectQuery(widgetModel);
             query += GetTablesAssociationQuery(widgetModel);
 
+            if (widgetModel.Type == "datagrid" && widgetModel.ShowTotal && widgetModel.StartRowNum == 0)
+            {
+                widgetModel.IsForTotal = true;
+                var totalQuery = GetSelectQuery(widgetModel);
+                totalQuery += GetTablesAssociationQuery(widgetModel);
+
+                query = totalQuery + " union all " + query;
+            }
+
+            
             return query;
         }
 
@@ -71,6 +82,10 @@ namespace DashboardApi
                 }
 
                 measuresString = measures.ToString();
+                if (string.IsNullOrWhiteSpace(measuresString))
+                {
+                    return null;
+                }
                 measuresString = measuresString.Remove(measuresString.LastIndexOf(','), 1);
             }
             var dims = new System.Text.StringBuilder();
@@ -79,12 +94,16 @@ namespace DashboardApi
             {
                 foreach (var dim in widgetModel.Dimension)
                 {
-                    // var expDisplayName = !string.IsNullOrWhiteSpace(measure.DisplayName) ? measure.DisplayName : '[' + measure.Expression + ']';
-                    if (!string.IsNullOrWhiteSpace(dim.Name))
+                    if (widgetModel.IsForTotal)
                     {
-                        dims.Append(dim.Name.Trim() + " as \"" + dim.Name.Trim() + "\",");
-                        //dims.Append(dim.Name.Trim() + ",");
+                        dims.Append(" null as \"" + dim.Name.Trim() + "\",");
                     }
+                    else if (!string.IsNullOrWhiteSpace(dim.Name))
+                    {
+                        // var expDisplayName = !string.IsNullOrWhiteSpace(measure.DisplayName) ? measure.DisplayName : '[' + measure.Expression + ']';                        
+                        dims.Append(dim.Name.Trim() + " as \"" + dim.Name.Trim() + "\",");
+                        //dims.Append(dim.Name.Trim() + ",");                        
+                    }                   
                 }
                 dimString = dims.ToString();
                 dimString = dimString.Remove(dimString.LastIndexOf(','), 1);
@@ -169,14 +188,24 @@ namespace DashboardApi
                 query = query.Substring(0, query.LastIndexOf("and"));
             }
 
-            if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0)
+            if (null != widgetModel.SearchList && widgetModel.SearchList.Count() > 0)
+            {
+                query += (null != widgetModel.FilterList && widgetModel.FilterList.Count() > 0) ? " and " : " where ";                
+                foreach (var search in widgetModel.SearchList)
+                {
+                    query += search.ColName + " like '%" + search.Value + "%' and ";
+                }
+                query = query.Substring(0, query.LastIndexOf("and"));
+            }
+
+                if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0 && !widgetModel.IsForTotal)
             {
                 //query = query.GroupBy(widgetModel.Dimension.Select(d => d.Name).ToArray<string>());
 
                 query += " group by " + String.Join(",", widgetModel.Dimension.Select(d => d.Name));
             }
 
-            if(widgetModel.EnablePagination && widgetModel.PageSize > 0 && !widgetModel.IsRecordCountReq)
+            if(widgetModel.EnablePagination && widgetModel.PageSize > 0 && !widgetModel.IsRecordCountReq && !widgetModel.IsForTotal)
             {
                 query += " limit " + widgetModel.PageSize + " offset " + widgetModel.StartRowNum;
             }
@@ -241,6 +270,11 @@ namespace DashboardApi
             var tableList = new List<Table>();
             var tableKey = string.Empty;
             //tables = tables.Select(t=>t.).OrderBy
+
+            if(tables.Count == 0)
+            {
+                return string.Empty;
+            }
             foreach (var t in tables)
             {
                 var table = dashboard.Tables.Where(tbl => tbl.Name == t).FirstOrDefault();
