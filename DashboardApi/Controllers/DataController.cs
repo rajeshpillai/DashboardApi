@@ -205,11 +205,11 @@ namespace DashboardApi.Controllers
             //dashboard.AddTable(new Table() { Name = "PurchaseOrderDetail" });
             //dashboard.AddTable(new Table() { Name = "PurchaseOrderHeader" });
 
-            dashboard.AddTable(new Table() { Name = "employee1" });
-            dashboard.AddTable(new Table() { Name = "skills1" });
+            //dashboard.AddTable(new Table() { Name = "employee1" });
+            //dashboard.AddTable(new Table() { Name = "skills1" });
 
 
-            //dashboard.Tables.AddRange(MemoryCache.Default.Get("tables") as List<Table>);
+            dashboard.Tables.AddRange(MemoryCache.Default.Get("tables") as List<Table>);
             dashboard.Associations = GetAllTableAssociations();
 
             var tablesCount = dashboard.Tables.Count();
@@ -240,6 +240,7 @@ namespace DashboardApi.Controllers
                 for (int k = 0; k < tablesInvoled.Count() - 1; k++)
                 {
                     var t = DashboardApi.Utility.Dijkstra.DijkstraAlgo(graph, Convert.ToInt32(tablesInvoled[k]), Convert.ToInt32(tablesInvoled[k + 1]), tablesCount);
+                    if (null == t) { continue; }
                     foreach (var tIndex in t.Split(','))
                     {
                         tInvolvedForCombi.Add(tIndex);
