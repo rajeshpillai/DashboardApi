@@ -15,7 +15,11 @@ using System.Data.Odbc;
 using MonetDB.Driver.Data;
 using MonetDB.Driver;
 using MonetDB.Driver.Extensions;
-using System.Net.Http;
+using System.Web;
+using DashboardApi.Utility;
+using System.IO;
+using System.Data;
+
 
 namespace DashboardApi.Controllers
 {
@@ -27,7 +31,6 @@ namespace DashboardApi.Controllers
         static List<Association> TableAssociations = null;
 
         static Dashboard dashboard = null;
-
 
         // GET: api/Data
         [Route("api/data/getsalary")]
@@ -653,6 +656,16 @@ namespace DashboardApi.Controllers
             }
         }
 
+        private void ExecuteQueryFromDB(string query)
+        {
+            using (var client = new WebClient())
+            {
+                var values = new System.Collections.Specialized.NameValueCollection();
+                values["equery"] = query;
+
+                var response = client.UploadValues("http://localhost:4000/getdata", "POST", values);
+            }
+        }
 
 
         [Route("api/data/getTotalRecordsCount")]
@@ -959,19 +972,166 @@ namespace DashboardApi.Controllers
             TableAssociations = associations;
         }
 
-        //private List<string> GetTables(WidgetModel widgetModel)
-        //{
-        //    var tables = new List<string>();
-        //    if(null != widgetModel.Measure && widgetModel.Measure.Length > 0)
-        //    {
-        //        foreach(var measure in widgetModel.Measure)
-        //        {
-        //            var tableName = 
-        //        }
-        //    }
+        [Route("api/data/importTable")]
+        [HttpPost]
+        public void ImportTable() //System.Web.HttpPostedFileBase file
+        {
+            var file = HttpContext.Current.Request.Files.Count > 0 ? HttpContext.Current.Request.Files[0] : null;
+            if (null != file)
+            {
+                //System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/ImportElements/");
+                var path = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/Upload/"),
+                                       System.IO.Path.GetFileName(file.FileName));
 
-        //    return tables;
-        //}
+                //var path = "";// Path.Combine(_env.WebRootPath,"upload", file.FileName);
+
+
+                file.SaveAs(path);
+
+                var directory = System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/Upload/");
+
+                System.Data.DataSet ds = new System.Data.DataSet();
+                string strConnString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=\"" + directory + "\";Extended Properties = 'text;HDR=Yes;FMT=Delimited(,)'; ";
+                //"Driver={Microsoft Text Driver (*.txt; *.csv)}; Dbq=" + path + "; Extensions=asc,csv,tab,txt;Persist Security Info=False";
+                string sql_select;
+
+                System.Data.OleDb.OleDbConnection conn;
+                conn = new System.Data.OleDb.OleDbConnection(strConnString.Trim());
+                conn.Open();
+
+                //Creates the select command text
+
+                sql_select = "select top 10 * from [" + file.FileName + "]";
+
+                //Creates the data adapter
+                System.Data.OleDb.OleDbDataAdapter obj_oledb_da = new System.Data.OleDb.OleDbDataAdapter(sql_select, conn);
+
+                //Fills dataset with the records from CSV file
+                obj_oledb_da.Fill(ds, "csv");
+
+                var tableName = ds.Tables[0].TableName;
+                var query = CreateTableFromDataTable(tableName, ds.Tables[0]);
+
+                //Create table
+                ExecuteQueryFromDB(query);
+
+                var importDataQuery = "COPY OFFSET 2 INTO " + tableName + " FROM '" + path + "' USING DELIMITERS ',';";
+                importDataQuery = importDataQuery.Replace("\\","/");
+                //Import Data
+                ExecuteQueryFromDB(importDataQuery);
+                
+
+            }
+        }
+
+        public static string CreateTableFromDataTable(string tableName, DataTable table)
+        {
+            string sql = "CREATE TABLE \"" + tableName + "\" ("; //\n";
+            // columns
+            foreach (DataColumn column in table.Columns)
+            {
+                //sql += "[" + column.ColumnName + "] " + SQLGetType(column) + ",\n";
+                sql += "\"" + column.ColumnName + "\" " + SQLGetType(column) + ",";
+            }
+            sql = sql.TrimEnd(new char[] { ',', '\n' });// + "\n";
+            //sql = sql.TrimEnd(new char[] { ',', '\n' }) + "\n";
+            // primary keys
+            //if (table.PrimaryKey.Length > 0)
+            //{
+            //    sql += "CONSTRAINT [PK_" + tableName + "] PRIMARY KEY CLUSTERED (";
+            //    foreach (DataColumn column in table.PrimaryKey)
+            //    {
+            //        sql += "[" + column.ColumnName + "],";
+            //    }
+            //    sql = sql.TrimEnd(new char[] { ',' }) + "))\n";
+            //}
+            //else
+            sql += ")";
+            return sql;
+        }
+
+        public static string SQLGetType(DataColumn column)
+        {
+            return GetSqlType(column.DataType, column.MaxLength, 10, 2);
+        }
+
+public static string GetSqlType(object type, int columnSize, int numericPrecision, int numericScale)
+        {
+            switch (type.ToString())
+            {
+                case "System.Byte[]":
+                    return "STRING";
+
+
+
+                case "System.Boolean":
+                    return "BIT";
+
+
+
+                case "System.DateTime":
+                    return "DATETIME";
+
+
+
+                case "System.DateTimeOffset":
+                    return "DATETIMEOFFSET";
+
+
+
+                case "System.Decimal":
+                    if (numericPrecision != -1 && numericScale != -1)
+                        return "DECIMAL(" + numericPrecision + "," + numericScale + ")";
+                    else
+                        return "DECIMAL";
+
+
+
+                case "System.Double":
+                    return "FLOAT";
+
+
+
+                case "System.Single":
+                    return "REAL";
+
+
+
+                case "System.Int64":
+                    return "BIGINT";
+
+
+
+                case "System.Int32":
+                    return "INT";
+
+
+
+                case "System.Int16":
+                    return "SMALLINT";
+
+
+
+                case "System.String":
+                    //return "NVARCHAR(" + ((columnSize == -1 || columnSize > 8000) ? "MAX" : columnSize.ToString()) + ")";
+                    return "STRING";
+
+
+
+                case "System.Byte":
+                    return "TINYINT";
+
+
+
+                case "System.Guid":
+                    return "UNIQUEIDENTIFIER";
+
+
+
+                default:
+                    throw new Exception(type.ToString() + " not implemented.");
+            }
+        }
 
         private static List<Association> GetAllTableAssociations()
         {            
