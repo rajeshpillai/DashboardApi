@@ -155,8 +155,14 @@ namespace DashboardApi
                     foreach (var rel in derivedAssociation.Relations)
                     {
                         //Todo: determine the joins based on filters on tables.
-                        query += " left outer join " + rel.TableName2 + " on " + rel.Keys[0] + rel.Operation + rel.Keys[1] + " ";
+                        query += " left outer join " + rel.TableName2 + " on ";// + rel.Keys[0] + rel.Operation + rel.Keys[1] + " ";
                         //query = query.Join(rel.TableName2, rel.Keys[0], rel.Keys[1], rel.Operation, rel.Type);
+                        foreach (var keys in rel.Keys)
+                        {
+                            query += keys[0] + rel.Operation + keys[1] + " and ";
+                        }
+                        query = query.Substring(0, query.LastIndexOf("and"));
+
                     }
                 }
             }

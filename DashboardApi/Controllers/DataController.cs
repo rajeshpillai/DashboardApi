@@ -24,7 +24,9 @@ namespace DashboardApi.Controllers
     {
         static object PageData = null;
 
-        Dashboard dashboard = null;
+        static List<Association> TableAssociations = null;
+
+        static Dashboard dashboard = null;
 
 
         // GET: api/Data
@@ -204,8 +206,10 @@ namespace DashboardApi.Controllers
             //dashboard.AddTable(new Table() { Name = "PurchaseOrderHeader" });
 
             dashboard.AddTable(new Table() { Name = "employee1" });
-            dashboard.AddTable(new Table() { Name = "skills1" });            
+            dashboard.AddTable(new Table() { Name = "skills1" });
 
+
+            //dashboard.Tables.AddRange(MemoryCache.Default.Get("tables") as List<Table>);
             dashboard.Associations = GetAllTableAssociations();
 
             var tablesCount = dashboard.Tables.Count();
@@ -870,7 +874,21 @@ namespace DashboardApi.Controllers
         [HttpPost]
         public dynamic GetTables()
         {
-            return GetDataFromDB("select tables.name from tables where tables.system=false");
+            var tables = GetDataFromDB("select tables.name from tables where tables.system=false");
+            if(null ==  dashboard) { dashboard = new Dashboard(); }
+            if(null == dashboard.Tables || (null != dashboard.Tables && dashboard.Tables.Count() == 0))
+            {
+                var tablesObject = tables.ToObject<List<object>>();
+                foreach(var o in tablesObject)
+                {
+                    dashboard.AddTable(new Table() { Name = o.name });
+                }
+            }
+
+            MemoryCache.Default.Set("tables", dashboard.Tables, null, null);
+            //dashboard.AddTable(new Table() { Name = "employee1" });
+            //dashboard.AddTable(new Table() { Name = "skills1" });
+            return tables;
         }
 
         [Route("api/data/getColumns")]
@@ -880,6 +898,65 @@ namespace DashboardApi.Controllers
             return GetDataFromDB("select * from sys.columns where table_id = (select id from tables where name ='" + tableName + "')");
         }
 
+        [Route("api/data/saveTableAssociation")]
+        [HttpPost]
+        public void SaveTableAssociation(Association association)
+        {
+            var associations = TableAssociations;
+            if(null == associations)
+            {
+                associations = new List<Association>();
+            }
+            //var 
+
+            var existingAssociation = associations.Where(a => a.TableName == association.TableName).FirstOrDefault();
+            if(null != existingAssociation)
+            {
+               var existRel = existingAssociation.Relations.Where(r => r.TableName2 == association.Relations[0].TableName2).FirstOrDefault();
+                if(null != existRel)
+                {
+                    existRel.Keys = association.Relations[0].Keys;
+                } else
+                {
+                    existingAssociation.Relations.Add(association.Relations[0]);                  
+                }
+            } else
+            {
+                associations.Add(association);
+            }
+
+            
+
+            if (null != association.Relations && association.Relations.Count() > 0)
+            {
+                var newAssociation = new Association();
+                newAssociation.TableName = association.Relations[0].TableName2;
+                var rel = new Relation();
+                rel.TableName2 = association.TableName;
+                rel.Keys = association.Relations[0].Keys;
+                newAssociation.Relations.Add(rel); //clone it 
+                existingAssociation = associations.Where(a => a.TableName == newAssociation.TableName).FirstOrDefault();
+                if (null != existingAssociation)
+                {
+                    var existRel = existingAssociation.Relations.Where(r => r.TableName2 == newAssociation.Relations[0].TableName2).FirstOrDefault();
+                    if (null != existRel)
+                    {
+                        existRel.Keys = newAssociation.Relations[0].Keys;
+                    }
+                    else
+                    {
+                        existingAssociation.Relations.Add(newAssociation.Relations[0]);
+                    }
+                }
+                else
+                {
+                    associations.Add(newAssociation);
+                }
+
+                //associations.Add(newAssociation);
+            }
+            TableAssociations = associations;
+        }
 
         //private List<string> GetTables(WidgetModel widgetModel)
         //{
@@ -897,6 +974,10 @@ namespace DashboardApi.Controllers
 
         private static List<Association> GetAllTableAssociations()
         {            
+            if(null != TableAssociations)
+            {
+                return TableAssociations;
+            }
             var associations = new List<Association>();
             var association = new Association();
             

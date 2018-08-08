@@ -7,6 +7,11 @@ namespace DashboardApi.Models
 {
     public class Relation
     {
+        public Relation()
+        {
+            this.Type = "left";
+            this.Operation = "=";
+        }
         public string TableName2 { get; set; }
 
         public string Type { get; set; }
