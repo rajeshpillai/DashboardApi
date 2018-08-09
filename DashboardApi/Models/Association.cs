@@ -71,6 +71,10 @@ namespace DashboardApi.Models
             {
                 return _tables;
             }
+            set
+            {
+                _tables = value;
+            }
         }
 
         public List<Association> Associations { get; set; }

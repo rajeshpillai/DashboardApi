@@ -23,7 +23,7 @@ namespace DashboardApi
             query = GetSelectQuery(widgetModel);
             query += GetTablesAssociationQuery(widgetModel);
 
-            if (widgetModel.Type == "datagrid" && widgetModel.ShowTotal && widgetModel.StartRowNum == 0)
+            if (widgetModel.Type == "datagrid" && widgetModel.ShowTotal && widgetModel.StartRowNum == 0 && null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
             {
                 widgetModel.IsForTotal = true;
                 var totalQuery = GetSelectQuery(widgetModel);

@@ -212,7 +212,16 @@ namespace DashboardApi.Controllers
             //dashboard.AddTable(new Table() { Name = "skills1" });
 
 
-            dashboard.Tables.AddRange(MemoryCache.Default.Get("tables") as List<Table>);
+            //dashboard.Tables.AddRange(MemoryCache.Default.Get("tables") as List<Table>);
+
+            var tables = GetTables();
+            var tablesObject = tables.ToObject<List<object>>();
+            dashboard.Tables = new List<Table>();
+            foreach (var o in tablesObject)
+            {
+                dashboard.AddTable(new Table() { Name = o.name });
+            }
+           
             dashboard.Associations = GetAllTableAssociations();
 
             var tablesCount = dashboard.Tables.Count();
@@ -889,19 +898,24 @@ namespace DashboardApi.Controllers
         public dynamic GetTables()
         {
             var tables = GetDataFromDB("select tables.name from tables where tables.system=false");
-            if(null ==  dashboard) { dashboard = new Dashboard(); }
-            if(null == dashboard.Tables || (null != dashboard.Tables && dashboard.Tables.Count() == 0))
-            {
-                var tablesObject = tables.ToObject<List<object>>();
-                foreach(var o in tablesObject)
-                {
-                    dashboard.AddTable(new Table() { Name = o.name });
-                }
-            }
+            //if (null != MemoryCache.Default.Get("dashboard", null))
+            //{
+            //    dashboard = MemoryCache.Default.Get("dashboard", null) as Dashboard;               
+            //}
 
-            MemoryCache.Default.Set("tables", dashboard.Tables, null, null);
-            //dashboard.AddTable(new Table() { Name = "employee1" });
-            //dashboard.AddTable(new Table() { Name = "skills1" });
+            //if (null ==  dashboard) { dashboard = new Dashboard(); }
+            //if(null == dashboard.Tables || (null != dashboard.Tables && dashboard.Tables.Count() == 0))
+            //{
+            //    var tablesObject = tables.ToObject<List<object>>();
+            //    foreach(var o in tablesObject)
+            //    {
+            //        dashboard.AddTable(new Table() { Name = o.name });
+            //    }
+            //}
+
+            //MemoryCache.Default.Set("tables", dashboard.Tables, null, null);
+            ////dashboard.AddTable(new Table() { Name = "employee1" });
+            ////dashboard.AddTable(new Table() { Name = "skills1" });
             return tables;
         }
 
@@ -976,6 +990,7 @@ namespace DashboardApi.Controllers
         [HttpPost]
         public void ImportTable() //System.Web.HttpPostedFileBase file
         {
+            
             var file = HttpContext.Current.Request.Files.Count > 0 ? HttpContext.Current.Request.Files[0] : null;
             if (null != file)
             {
@@ -992,6 +1007,7 @@ namespace DashboardApi.Controllers
 
                 System.Data.DataSet ds = new System.Data.DataSet();
                 string strConnString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=\"" + directory + "\";Extended Properties = 'text;HDR=Yes;FMT=Delimited(,)'; ";
+                //string strConnString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=\"" + directory + "\";Extended Properties = 'text;HDR=Yes;FMT=TabDelimited'; ";
                 //"Driver={Microsoft Text Driver (*.txt; *.csv)}; Dbq=" + path + "; Extensions=asc,csv,tab,txt;Persist Security Info=False";
                 string sql_select;
 
@@ -1001,7 +1017,7 @@ namespace DashboardApi.Controllers
 
                 //Creates the select command text
 
-                sql_select = "select top 10 * from [" + file.FileName + "]";
+                sql_select = "select top 200 * from [" + file.FileName + "]";
 
                 //Creates the data adapter
                 System.Data.OleDb.OleDbDataAdapter obj_oledb_da = new System.Data.OleDb.OleDbDataAdapter(sql_select, conn);
@@ -1016,6 +1032,7 @@ namespace DashboardApi.Controllers
                 ExecuteQueryFromDB(query);
 
                 var importDataQuery = "COPY OFFSET 2 INTO " + tableName + " FROM '" + path + "' USING DELIMITERS ',';";
+                //var importDataQuery = "COPY OFFSET 2 INTO " + tableName + " FROM '" + path + "' USING DELIMITERS '\t';";
                 importDataQuery = importDataQuery.Replace("\\","/");
                 //Import Data
                 ExecuteQueryFromDB(importDataQuery);
