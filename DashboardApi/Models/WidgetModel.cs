@@ -128,6 +128,8 @@ namespace DashboardApi.Models
         public string Expression { get; set; }
         public string DisplayName { get; set; }
 
+        public string Name { get; set; }
+
         //public bool IsVisible
         //{
         //    get
@@ -217,5 +219,11 @@ namespace DashboardApi.Models
     //    public string MyProperty { get; set; }
     //    public bool IsAssociationExist { get; set; }
     //}
+
+    public class AssociationModel
+    {
+        public Association Association { get; set; }
+        public int AppId { get; set; }
+    }
    
 }

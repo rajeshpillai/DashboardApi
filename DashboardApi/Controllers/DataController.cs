@@ -888,9 +888,15 @@ namespace DashboardApi.Controllers
 
         [Route("api/data/getPageData")]
         [HttpPost]
-        public object GetPageData()
+        public object GetPageData(dynamic criteria)
         {
-           return PageData;
+            var appId = criteria.appId;
+            var pageId = criteria.pageId;
+            //if (null != PageData)
+            //{
+            //    PageData.Where(p=>p.pageId == pageId)
+            //}
+            return PageData;
         }
 
         [Route("api/data/getTables")]
@@ -928,7 +934,7 @@ namespace DashboardApi.Controllers
 
         [Route("api/data/saveTableAssociation")]
         [HttpPost]
-        public void SaveTableAssociation(Association association)
+        public void SaveTableAssociation(AssociationModel associationModel)
         {
             var associations = TableAssociations;
             if(null == associations)
@@ -936,7 +942,7 @@ namespace DashboardApi.Controllers
                 associations = new List<Association>();
             }
             //var 
-
+            var association = associationModel.Association;
             var existingAssociation = associations.Where(a => a.TableName == association.TableName).FirstOrDefault();
             if(null != existingAssociation)
             {

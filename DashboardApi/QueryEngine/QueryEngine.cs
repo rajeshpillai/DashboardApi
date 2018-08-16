@@ -23,6 +23,8 @@ namespace DashboardApi
             query = GetSelectQuery(widgetModel);
             query += GetTablesAssociationQuery(widgetModel);
 
+            //query = "Select D.*," + GetMeasureString(widgetModel) + " from (" + query + ") D ";
+
             if (widgetModel.Type == "datagrid" && widgetModel.ShowTotal && widgetModel.StartRowNum == 0 && null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
             {
                 widgetModel.IsForTotal = true;
@@ -48,6 +50,52 @@ namespace DashboardApi
             return query;
         }
 
+        //private string GetDimStringForGroupBy(WidgetModel widgetModel)
+        //{
+
+        //}
+
+        private string GetMeasureString(WidgetModel widgetModel)
+        {            
+            var measures = new System.Text.StringBuilder();
+            if (widgetModel.Type == "kpi" && (null == widgetModel.Measure || (null != widgetModel.Measure && widgetModel.Measure.Length == 0)))
+            {
+                return null;
+            }
+            if (widgetModel.Type == "filter" && (null == widgetModel.Dimension || (null != widgetModel.Dimension && widgetModel.Dimension.Length == 0)))
+            {
+                return null;
+            }
+
+            var measuresString = string.Empty;
+            if (null != widgetModel.Measure)
+            {
+                foreach (var measure in widgetModel.Measure)
+                {
+                    if (string.IsNullOrWhiteSpace(measure.Expression)) { continue; }
+
+                    //measures.Append(string.Format("{0} ", measure.Expression.Trim()) + ", ");
+                    if (!string.IsNullOrWhiteSpace(measure.DisplayName))
+                    {
+                        measures.Append(string.Format("{0} as \"{1}\" ", measure.Name.Trim(), measure.DisplayName.Trim()) + ", ");
+                    }
+                    else
+                    {
+                        measures.Append(string.Format("{0} as \"{1}\"", measure.Name.Trim(), measure.Name.Trim()) + ", ");
+                    }
+                }
+
+                measuresString = measures.ToString();
+                if (string.IsNullOrWhiteSpace(measuresString))
+                {
+                    return null;
+                }
+                measuresString = measuresString.Remove(measuresString.LastIndexOf(','), 1);
+            }           
+
+            return measuresString;
+        }
+
         private string GetSelectQuery(WidgetModel widgetModel)
         {
             string selectQuery = null;
@@ -71,6 +119,14 @@ namespace DashboardApi
                     if (string.IsNullOrWhiteSpace(measure.Expression)) { continue; }
 
                     //measures.Append(string.Format("{0} ", measure.Expression.Trim()) + ", ");
+                    //if (!string.IsNullOrWhiteSpace(measure.DisplayName))
+                    //{
+                    //    measures.Append(string.Format("{0} as \"{1}\" ", measure.Name.Trim(), measure.DisplayName.Trim()) + ", ");
+                    //}
+                    //else
+                    //{
+                    //    measures.Append(string.Format("{0} as \"{1}\"", measure.Name.Trim(), measure.Name.Trim()) + ", ");
+                    //}
                     if (!string.IsNullOrWhiteSpace(measure.DisplayName))
                     {
                         measures.Append(string.Format("{0} as \"{1}\" ", measure.Expression.Trim(), measure.DisplayName.Trim()) + ", ");
@@ -124,6 +180,7 @@ namespace DashboardApi
                 if (!string.IsNullOrWhiteSpace(selectColumnsString))
                 {
                     //query = query.SelectRaw(dimString);
+                    //selectQuery = "Select distinct " + selectColumnsString;
                     selectQuery = "Select " + selectColumnsString;
                 }               
 
@@ -249,7 +306,8 @@ namespace DashboardApi
                     {
                         expression = expression.Replace(r, "");
                     }
-                    expression = expression.Trim();                    
+                    expression = expression.Trim();
+                    measure.Name = expression;
                     var tableName = expression.Substring(0, expression.IndexOf("."));
                     if (!tables.Contains(tableName))
                     {
