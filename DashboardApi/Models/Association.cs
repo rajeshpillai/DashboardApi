@@ -20,6 +20,15 @@ namespace DashboardApi.Models
 
         public List<List<string>> Keys { get; set; }
 
+        public Cardinality Cardinality { get; set; }
+
+    }
+
+    public enum Cardinality
+    {
+        OneToMany,
+        OneToOne,
+        ManyToOne
     }
 
 

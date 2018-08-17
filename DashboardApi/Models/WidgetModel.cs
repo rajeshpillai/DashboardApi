@@ -63,6 +63,8 @@ namespace DashboardApi.Models
         }
 
         public string[] AllColumns { get; set; }
+
+        public string TablesKey { get; set; }
     }
 
 
@@ -157,6 +159,8 @@ namespace DashboardApi.Models
         }
 
         public string Type { get; set; }
+
+       
     }
 
     public class FixedFilter

@@ -20,16 +20,56 @@ namespace DashboardApi
             string query = null;
             widgetModel.IsForTotal = false;
 
+            widgetModel.TablesKey = GetTablesInvolved(widgetModel);
+            
             query = GetSelectQuery(widgetModel);
             query += GetTablesAssociationQuery(widgetModel);
 
-            //query = "Select D.*," + GetMeasureString(widgetModel) + " from (" + query + ") D ";
+            var tableQuery = query;
+
+            query = "Select D.* ";
+
+            if (null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
+            {
+                query += "," + GetMeasureString(widgetModel);
+            }
+            query += " from (" + tableQuery + ") D ";
+
+            if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0) // && !widgetModel.IsForTotal)
+            {
+                query += " group by "; // + String.Join(",", "D." + widgetModel.Dimension.Select(d => d.Name));    
+                
+                foreach(var dim in widgetModel.Dimension)
+                {
+                    query += "D.\"" + dim.Name  + "\",";
+                }
+                query = query.Remove(query.LastIndexOf(','), 1);              
+            }
 
             if (widgetModel.Type == "datagrid" && widgetModel.ShowTotal && widgetModel.StartRowNum == 0 && null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
             {
                 widgetModel.IsForTotal = true;
                 var totalQuery = GetSelectQuery(widgetModel);
                 totalQuery += GetTablesAssociationQuery(widgetModel);
+                var totalSelectQuery = "select ";
+                if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0) // && !widgetModel.IsForTotal)
+                {                   
+                    foreach (var dim in widgetModel.Dimension)
+                    {
+                        totalSelectQuery += "null as \"" + dim.Name + "\",";
+                    }
+
+                    foreach (var m in widgetModel.Measure)
+                    {
+                        
+                        totalSelectQuery += ReplaceTableNameOfMeasure(widgetModel, m.Expression, "D") + " as \"" + m.Expression + "\",";
+                    }
+
+                    totalSelectQuery = totalSelectQuery.Remove(totalSelectQuery.LastIndexOf(','), 1);
+                }
+
+
+                totalQuery = totalSelectQuery + " from (" + totalQuery + " ) D";
 
                 query = totalQuery + " union all " + query;
             }
@@ -42,8 +82,24 @@ namespace DashboardApi
         {
             string query = null;
 
+            widgetModel.TablesKey = GetTablesInvolved(widgetModel);
+
             query = GetSelectQuery(widgetModel);
             query += GetTablesAssociationQuery(widgetModel);
+
+            //query = "Select D.*," + GetMeasureString(widgetModel) + " from (" + query + ") D ";
+            query = "Select D.* from (" + query + ") D ";
+
+            if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0 ) //&& !widgetModel.IsForTotal)
+            {
+                query += " group by "; // + String.Join(",", "D." + widgetModel.Dimension.Select(d => d.Name));    
+
+                foreach (var dim in widgetModel.Dimension)
+                {
+                    query += "D.\"" + dim.Name + "\",";
+                }
+                query = query.Remove(query.LastIndexOf(','), 1);
+            }
 
             query = "Select count(*) as totalRowsCount from (" + query + ") as t1";
 
@@ -73,15 +129,15 @@ namespace DashboardApi
                 foreach (var measure in widgetModel.Measure)
                 {
                     if (string.IsNullOrWhiteSpace(measure.Expression)) { continue; }
+                    var expression = ReplaceTableNameOfMeasure(widgetModel,measure.Expression.Trim(), "D");
 
-                    //measures.Append(string.Format("{0} ", measure.Expression.Trim()) + ", ");
                     if (!string.IsNullOrWhiteSpace(measure.DisplayName))
                     {
-                        measures.Append(string.Format("{0} as \"{1}\" ", measure.Name.Trim(), measure.DisplayName.Trim()) + ", ");
+                        measures.Append(string.Format("{0} as \"{1}\" ", expression, measure.DisplayName.Trim()) + ", ");
                     }
                     else
                     {
-                        measures.Append(string.Format("{0} as \"{1}\"", measure.Name.Trim(), measure.Name.Trim()) + ", ");
+                        measures.Append(string.Format("{0} as \"{1}\"", expression, measure.Expression.Trim()) + ", ");
                     }
                 }
 
@@ -91,7 +147,7 @@ namespace DashboardApi
                     return null;
                 }
                 measuresString = measuresString.Remove(measuresString.LastIndexOf(','), 1);
-            }           
+            }
 
             return measuresString;
         }
@@ -112,28 +168,48 @@ namespace DashboardApi
             var measuresString = string.Empty;
             var dimString = string.Empty;
 
+
+            DerivedAssociation derivedAssociation = null;
+            if (dashboard.TableAssociationHash.ContainsKey(widgetModel.TablesKey))
+            {
+                derivedAssociation = dashboard.TableAssociationHash[widgetModel.TablesKey];
+            }
             if (null != widgetModel.Measure)
             {
                 foreach (var measure in widgetModel.Measure)
                 {
                     if (string.IsNullOrWhiteSpace(measure.Expression)) { continue; }
 
+                    var mTableName = GetTableNameOfMeasure(measure.Expression);
+                    var expression = measure.Expression.Trim();
+
+                    if (null != derivedAssociation && expression.IndexOf("sum") != -1) //Only for sum
+                    {
+                        if (derivedAssociation.TableName1 == mTableName)
+                        {
+                            if (derivedAssociation.Relations[0].Cardinality == Cardinality.OneToMany)
+                            {
+                                expression = expression + "/count(" + derivedAssociation.Relations[0].Keys[0][0] + ")"; //divide by count
+                            }
+                        }
+                        else
+                        {
+                            var matchedRel = derivedAssociation.Relations.Where(r => r.TableName2 == mTableName).FirstOrDefault();
+                            if (matchedRel.Cardinality == Cardinality.ManyToOne)
+                            {
+                                expression += expression + "/count(" + matchedRel.Keys[0][1] + ")"; //divide by count
+                            }
+                        }
+                    }
+
                     //measures.Append(string.Format("{0} ", measure.Expression.Trim()) + ", ");
-                    //if (!string.IsNullOrWhiteSpace(measure.DisplayName))
-                    //{
-                    //    measures.Append(string.Format("{0} as \"{1}\" ", measure.Name.Trim(), measure.DisplayName.Trim()) + ", ");
-                    //}
-                    //else
-                    //{
-                    //    measures.Append(string.Format("{0} as \"{1}\"", measure.Name.Trim(), measure.Name.Trim()) + ", ");
-                    //}
                     if (!string.IsNullOrWhiteSpace(measure.DisplayName))
                     {
-                        measures.Append(string.Format("{0} as \"{1}\" ", measure.Expression.Trim(), measure.DisplayName.Trim()) + ", ");
+                        measures.Append(string.Format("{0} as \"{1}\" ", expression, measure.DisplayName.Trim()) + ", ");
                     }
                     else
                     {
-                        measures.Append(string.Format("{0} as \"{1}\"", measure.Expression.Trim(), measure.Expression.Trim()) + ", ");
+                        measures.Append(string.Format("{0} as \"{1}\"", expression, measure.Expression.Trim()) + ", ");
                     }
                 }
 
@@ -199,8 +275,9 @@ namespace DashboardApi
         private string GetTablesAssociationQuery(WidgetModel widgetModel)
         {
             string query = null;
-            var tablesKey = GetTablesInvolved(widgetModel);
+            var tablesKey = (null != widgetModel.TablesKey)? widgetModel.TablesKey : GetTablesInvolved(widgetModel);
             DerivedAssociation derivedAssociation = null;
+            string groupByAssociationKeys = null;
 
             if (dashboard.TableAssociationHash.ContainsKey(tablesKey))
             {
@@ -211,15 +288,22 @@ namespace DashboardApi
                     query = " from  " + derivedAssociation.TableName1; // db.Query(derivedAssociation.TableName1);
                     foreach (var rel in derivedAssociation.Relations)
                     {
+                        //var tableId = dashboard.Tables.Where(t => t.Name == rel.TableName2).FirstOrDefault().Id.ToString();
+                        //if(!tablesKey.Contains(tableId)) { continue; }
                         //Todo: determine the joins based on filters on tables.
                         query += " left outer join " + rel.TableName2 + " on ";// + rel.Keys[0] + rel.Operation + rel.Keys[1] + " ";
                         //query = query.Join(rel.TableName2, rel.Keys[0], rel.Keys[1], rel.Operation, rel.Type);
                         foreach (var keys in rel.Keys)
                         {
                             query += keys[0] + rel.Operation + keys[1] + " and ";
+                            groupByAssociationKeys += keys[0] + ",";
                         }
                         query = query.Substring(0, query.LastIndexOf("and"));
 
+                    }
+                    if (null != groupByAssociationKeys)
+                    {
+                        groupByAssociationKeys = groupByAssociationKeys.Substring(0, groupByAssociationKeys.LastIndexOf(","));
                     }
                 }
             }
@@ -261,11 +345,16 @@ namespace DashboardApi
                 query = query.Substring(0, query.LastIndexOf("and"));
             }
 
-                if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0 && !widgetModel.IsForTotal)
+                if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0) // && !widgetModel.IsForTotal)
             {
                 //query = query.GroupBy(widgetModel.Dimension.Select(d => d.Name).ToArray<string>());
 
                 query += " group by " + String.Join(",", widgetModel.Dimension.Select(d => d.Name));
+                if(null != groupByAssociationKeys)
+                {
+                    query += "," + groupByAssociationKeys;
+                }
+              
             }
 
             if(widgetModel.EnablePagination && widgetModel.PageSize > 0 && !widgetModel.IsRecordCountReq && !widgetModel.IsForTotal)
@@ -357,6 +446,73 @@ namespace DashboardApi
 
             //return tables;
             return tableKey;
+        }
+
+        private string GetTableNameOfMeasure(string measureExp)
+        {
+            var replacementStrings = new string[5] { "sum", "count", "avg", "(", ")" };
+            
+            var expression = measureExp;
+            //if (string.IsNullOrWhiteSpace(expression)) { continue; }
+            foreach (var r in replacementStrings)
+            {
+                expression = expression.Replace(r, "");
+            }
+            expression = expression.Trim();               
+            return( expression.Substring(0, expression.IndexOf(".")));                            
+        }
+
+        private string ReplaceTableNameOfMeasure(WidgetModel widgetModel, string measureExp, string replaceByTableName)
+        {
+            var replacementStrings = new string[5] { "sum", "count", "avg", "(", ")" };
+            var mTableName = GetTableNameOfMeasure(measureExp);
+            var expression = measureExp;
+            DerivedAssociation derivedAssociation = null;
+            if (dashboard.TableAssociationHash.ContainsKey(widgetModel.TablesKey))
+            {
+                derivedAssociation = dashboard.TableAssociationHash[widgetModel.TablesKey];
+            }
+            //if (string.IsNullOrWhiteSpace(expression)) { continue; }
+            foreach (var r in replacementStrings)
+            {
+                expression = expression.Replace(r, "");
+            }
+            expression = expression.Trim();
+            bool isCountToSum = false;
+
+            if (null != derivedAssociation && measureExp.IndexOf("count") != -1) //Only for sum
+            {
+                if(derivedAssociation.Relations.Where(r => r.Keys.Where(k=>k.Contains(expression)).Count() > 0).Count() > 0)
+                {
+                    isCountToSum = false;
+                } else if (derivedAssociation.TableName1 == mTableName)
+                {
+                    if (derivedAssociation.Relations[0].Cardinality == Cardinality.ManyToOne)
+                    {
+                        isCountToSum = true;
+                    }
+                }
+                else
+                {
+                    var matchedRel = derivedAssociation.Relations.Where(r => r.TableName2 == mTableName).FirstOrDefault();
+                    if (matchedRel.Cardinality == Cardinality.OneToMany)
+                    {
+                        isCountToSum = true;
+                    }
+                }
+            }
+
+
+            expression = measureExp.Replace(expression, replaceByTableName + ".\"" + measureExp + "\"");
+
+            if (isCountToSum)
+            {
+                expression =  expression.Replace("count(D","sum(D");
+            }
+
+            //return (measureExp.Replace(tableName, replaceByTableName));
+            //return (replaceByTableName + ".\"" + measureExp + "\"");
+            return expression;
         }
     }
 }

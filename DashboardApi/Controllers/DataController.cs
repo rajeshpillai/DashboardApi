@@ -1054,7 +1054,7 @@ namespace DashboardApi.Controllers
             foreach (DataColumn column in table.Columns)
             {
                 //sql += "[" + column.ColumnName + "] " + SQLGetType(column) + ",\n";
-                sql += "\"" + column.ColumnName + "\" " + SQLGetType(column) + ",";
+                sql += "\"" + column.ColumnName.ToLower() + "\" " + SQLGetType(column) + " NULL ,";
             }
             sql = sql.TrimEnd(new char[] { ',', '\n' });// + "\n";
             //sql = sql.TrimEnd(new char[] { ',', '\n' }) + "\n";
@@ -1079,7 +1079,7 @@ namespace DashboardApi.Controllers
         }
 
 public static string GetSqlType(object type, int columnSize, int numericPrecision, int numericScale)
-        {
+        {           
             switch (type.ToString())
             {
                 case "System.Byte[]":
@@ -1093,7 +1093,7 @@ public static string GetSqlType(object type, int columnSize, int numericPrecisio
 
 
                 case "System.DateTime":
-                    return "DATETIME";
+                    return "timestamp";
 
 
 
