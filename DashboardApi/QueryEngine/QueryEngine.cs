@@ -183,13 +183,22 @@ namespace DashboardApi
                 foreach (var measure in widgetModel.Measure)
                 {
                     if (string.IsNullOrWhiteSpace(measure.Expression)) { continue; }
-
+                    var isMeasureToBeConsidered = true;
+                    if (widgetModel.TablesKey.Split(',').Where(tKey=> measure.TableIds.Contains(Convert.ToInt32(tKey))).Count() == 0)
+                    {
+                        //This measure need not be used its tale dont have relation with other tables used in query.
+                        isMeasureToBeConsidered = false;
+                    }
                     var mTableName = GetTableNameOfMeasure(measure.Expression);
                     var expression = measure.Expression.Trim();
 
                     if (null != derivedAssociation && expression.IndexOf("sum") != -1) //Only for sum
                     {
-                        if (derivedAssociation.TableName1 == mTableName)
+                        if (!isMeasureToBeConsidered)
+                        {
+                            expression = "0";
+                        }
+                        else if (derivedAssociation.TableName1 == mTableName)
                         {
                             if (derivedAssociation.Relations[0].Cardinality == Cardinality.OneToMany)
                             {
@@ -207,12 +216,19 @@ namespace DashboardApi
                     } 
                     else if (null != derivedAssociation && expression.IndexOf("count") != -1) //Only for count
                     {
-                        bool isCountToSum = IsCountToSum(widgetModel, expression);
-                        if (!isCountToSum)
+                        if (!isMeasureToBeConsidered)
                         {
-                            //add null condition i count is zero
-                            //CASE WHEN count(orders.ordernumber) = 0 THEN null ELSE count(orders.ordernumber) END
-                            expression = "CASE WHEN " + expression + "= 0 THEN null ELSE " + expression + " END ";
+                            expression = "null";
+                        }
+                        else
+                        {
+                            bool isCountToSum = IsCountToSum(widgetModel, expression);
+                            if (!isCountToSum)
+                            {
+                                //add null condition i count is zero
+                                //CASE WHEN count(orders.ordernumber) = 0 THEN null ELSE count(orders.ordernumber) END
+                                expression = "CASE WHEN " + expression + "= 0 THEN null ELSE " + expression + " END ";
+                            }
                         }
                     }
 
@@ -240,7 +256,11 @@ namespace DashboardApi
             {
                 foreach (var dim in widgetModel.Dimension)
                 {
-                    if (widgetModel.IsForTotal)
+                    if (!widgetModel.TablesKey.Split(',').Contains(dim.TableId.ToString()))
+                    {
+                        dims.Append(" null as \"" + dim.Name.Trim() + "\",");
+
+                    } else if (widgetModel.IsForTotal)
                     {
                         dims.Append(" null as \"" + dim.Name.Trim() + "\",");
                     }
@@ -332,26 +352,31 @@ namespace DashboardApi
                 }
             }
 
+            var filters = widgetModel.FilterList;
             if (null != widgetModel.FilterList && widgetModel.FilterList.Count() > 0)
             {
-                query += (query.Contains("where"))? " " : " where ";
-                foreach (var filter in widgetModel.FilterList)
+                filters =  widgetModel.FilterList.Where(f => derivedAssociation.TableName1 == f.TableName || derivedAssociation.Relations.Where(r => r.TableName2 == f.TableName).Count() > 0).ToList();
+                if (filters.Count() > 0)
                 {
-                    //query = query.WhereIn(filter.ColName, filter.Values);
-                    var values = string.Empty;
-                    foreach(var fValue in filter.Values)
+                    query += (query.Contains("where")) ? " " : " where ";
+                    foreach (var filter in widgetModel.FilterList)
                     {
-                        values += "'" + fValue + "',";
+                        //query = query.WhereIn(filter.ColName, filter.Values);
+                        var values = string.Empty;
+                        foreach (var fValue in filter.Values)
+                        {
+                            values += "'" + fValue + "',";
+                        }
+                        values = values.Substring(0, values.LastIndexOf(","));
+                        query += filter.ColName + " in (" + values + ") and ";
                     }
-                    values = values.Substring(0, values.LastIndexOf(","));
-                    query += filter.ColName + " in (" + values + ") and ";
+                    query = query.Substring(0, query.LastIndexOf("and"));
                 }
-                query = query.Substring(0, query.LastIndexOf("and"));
             }
 
             if (null != widgetModel.SearchList && widgetModel.SearchList.Count() > 0)
             {
-                query += (null != widgetModel.FilterList && widgetModel.FilterList.Count() > 0) ? " and " : " where ";                
+                query += (null != filters && filters.Count() > 0) ? " and " : " where ";                
                 foreach (var search in widgetModel.SearchList)
                 {
                     query += search.ColName + " like '%" + search.Value + "%' and ";
@@ -359,7 +384,7 @@ namespace DashboardApi
                 query = query.Substring(0, query.LastIndexOf("and"));
             }
 
-                if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0) // && !widgetModel.IsForTotal)
+            if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0) // && !widgetModel.IsForTotal)
             {
                 //query = query.GroupBy(widgetModel.Dimension.Select(d => d.Name).ToArray<string>());
 
@@ -391,6 +416,13 @@ namespace DashboardApi
                 {
                     var dimName = dim.Name;
                     var tableName = dimName.Substring(0, dimName.IndexOf("."));
+
+                    dim.TableName =tableName;
+                    var table = dashboard.Tables.Where(tbl => tbl.Name == tableName).FirstOrDefault();
+                    if (null != table)
+                    {
+                        dim.TableId = table.Id;
+                    }                   
                     if (!tables.Contains(tableName))
                     {
                         tables.Add(tableName);
@@ -412,6 +444,17 @@ namespace DashboardApi
                     expression = expression.Trim();
                     measure.Name = expression;
                     var tableName = expression.Substring(0, expression.IndexOf("."));
+                    if (!measure.TableNames.Contains(tableName))
+                    {
+                        measure.TableNames.Add(tableName);
+                        var table = dashboard.Tables.Where(tbl => tbl.Name == tableName).FirstOrDefault();
+                        if (null != table)
+                        {
+                            measure.TableIds.Add(table.Id);
+                        }
+                    }
+                        
+
                     if (!tables.Contains(tableName))
                     {
                         tables.Add(tableName);
@@ -426,6 +469,11 @@ namespace DashboardApi
                     var colName = filter.ColName;
                     var tableName = colName.Substring(0, colName.IndexOf("."));
                     filter.TableName = tableName;
+                    var table = dashboard.Tables.Where(tbl => tbl.Name == tableName).FirstOrDefault();
+                    if (null != table)
+                    {
+                        filter.TableId = table.Id;
+                    }
                     if (!tables.Contains(tableName))
                     {
                         tables.Add(tableName);

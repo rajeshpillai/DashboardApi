@@ -99,6 +99,9 @@ namespace DashboardApi.Models
 
         public bool IsPercentage { get; set; }
 
+        public string TableName { get; set; }
+
+        public int TableId { get; set; }
 
     }
 
@@ -123,6 +126,11 @@ namespace DashboardApi.Models
 
     public class Measure
     {
+        public Measure()
+        {
+            this.TableNames = new List<string>();
+            this.TableIds = new List<int>();
+        }
         //private bool _isVisible = true;
 
         private bool _isExpression = true;
@@ -160,7 +168,9 @@ namespace DashboardApi.Models
 
         public string Type { get; set; }
 
-       
+        public List<string> TableNames { get; set; }
+
+        public List<int> TableIds { get; set; }
     }
 
     public class FixedFilter
@@ -209,6 +219,8 @@ namespace DashboardApi.Models
         }
 
         public string TableName { get; set; }
+
+        public int TableId { get; set; }
     }
 
     public class Search
