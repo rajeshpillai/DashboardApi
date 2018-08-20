@@ -45,6 +45,10 @@ namespace DashboardApi
                 }
                 query = query.Remove(query.LastIndexOf(','), 1);              
             }
+            if (widgetModel.EnablePagination && widgetModel.PageSize > 0 && !widgetModel.IsRecordCountReq && !widgetModel.IsForTotal)
+            {
+                query += " limit " + widgetModel.PageSize + " offset " + widgetModel.StartRowNum;
+            }
 
             if (widgetModel.Type == "datagrid" && widgetModel.ShowTotal && widgetModel.StartRowNum == 0 && null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
             {
@@ -199,6 +203,16 @@ namespace DashboardApi
                             {
                                 expression += expression + "/count(" + matchedRel.Keys[0][1] + ")"; //divide by count
                             }
+                        }
+                    } 
+                    else if (null != derivedAssociation && expression.IndexOf("count") != -1) //Only for count
+                    {
+                        bool isCountToSum = IsCountToSum(widgetModel, expression);
+                        if (!isCountToSum)
+                        {
+                            //add null condition i count is zero
+                            //CASE WHEN count(orders.ordernumber) = 0 THEN null ELSE count(orders.ordernumber) END
+                            expression = "CASE WHEN " + expression + "= 0 THEN null ELSE " + expression + " END ";
                         }
                     }
 
@@ -357,10 +371,10 @@ namespace DashboardApi
               
             }
 
-            if(widgetModel.EnablePagination && widgetModel.PageSize > 0 && !widgetModel.IsRecordCountReq && !widgetModel.IsForTotal)
-            {
-                query += " limit " + widgetModel.PageSize + " offset " + widgetModel.StartRowNum;
-            }
+            //if(widgetModel.EnablePagination && widgetModel.PageSize > 0 && !widgetModel.IsRecordCountReq && !widgetModel.IsForTotal)
+            //{
+            //    query += " limit " + widgetModel.PageSize + " offset " + widgetModel.StartRowNum;
+            //}
 
             //query += " limit 1000" + " offset 0";
 
@@ -467,6 +481,74 @@ namespace DashboardApi
             var replacementStrings = new string[5] { "sum", "count", "avg", "(", ")" };
             var mTableName = GetTableNameOfMeasure(measureExp);
             var expression = measureExp;
+            //DerivedAssociation derivedAssociation = null;
+            //if (dashboard.TableAssociationHash.ContainsKey(widgetModel.TablesKey))
+            //{
+            //    derivedAssociation = dashboard.TableAssociationHash[widgetModel.TablesKey];
+            //}
+            ////if (string.IsNullOrWhiteSpace(expression)) { continue; }
+            foreach (var r in replacementStrings)
+            {
+                expression = expression.Replace(r, "");
+            }
+            expression = expression.Trim();
+            bool isCountToSum = IsCountToSum(widgetModel, measureExp);
+
+            //if (null != derivedAssociation && measureExp.IndexOf("count") != -1) //Only for count
+            //{
+            //    if(derivedAssociation.Relations.Where(r => r.Keys.Where(k=>k.Contains(expression)).Count() > 0).Count() > 0)
+            //    {
+            //        var relation = derivedAssociation.Relations.Where(r => r.Keys.Where(k => k.Contains(expression)).Count() > 0).First();
+            //        if(relation.TableName2 == mTableName)
+            //        {
+            //            if (relation.Cardinality == Cardinality.OneToMany)
+            //            {
+            //                isCountToSum = true;
+            //            }
+            //        } else if (derivedAssociation.TableName1 == mTableName)
+            //        {
+            //            if (derivedAssociation.Relations[0].Cardinality == Cardinality.ManyToOne)
+            //            {
+            //                isCountToSum = true;
+            //            }
+            //        }
+            //        //isCountToSum = false;
+            //    } else if (derivedAssociation.TableName1 == mTableName)
+            //    {
+            //        if (derivedAssociation.Relations[0].Cardinality == Cardinality.ManyToOne)
+            //        {
+            //            isCountToSum = true;
+            //        }
+            //    }
+            //    else
+            //    {
+            //        var matchedRel = derivedAssociation.Relations.Where(r => r.TableName2 == mTableName).FirstOrDefault();
+            //        if (matchedRel.Cardinality == Cardinality.OneToMany)
+            //        {
+            //            isCountToSum = true;
+            //        }
+            //    }
+            //}
+
+
+            expression = measureExp.Replace(expression, replaceByTableName + ".\"" + measureExp + "\"");
+
+            if (isCountToSum)
+            {
+                expression =  expression.Replace("count(D","sum(D");
+            }
+
+            //return (measureExp.Replace(tableName, replaceByTableName));
+            //return (replaceByTableName + ".\"" + measureExp + "\"");
+            return expression;
+        }
+
+
+        private bool IsCountToSum(WidgetModel widgetModel, string measureExp)
+        {
+            var replacementStrings = new string[5] { "sum", "count", "avg", "(", ")" };
+            var mTableName = GetTableNameOfMeasure(measureExp);
+            var expression = measureExp;
             DerivedAssociation derivedAssociation = null;
             if (dashboard.TableAssociationHash.ContainsKey(widgetModel.TablesKey))
             {
@@ -480,12 +562,28 @@ namespace DashboardApi
             expression = expression.Trim();
             bool isCountToSum = false;
 
-            if (null != derivedAssociation && measureExp.IndexOf("count") != -1) //Only for sum
+            if (null != derivedAssociation && measureExp.IndexOf("count") != -1) //Only for count
             {
-                if(derivedAssociation.Relations.Where(r => r.Keys.Where(k=>k.Contains(expression)).Count() > 0).Count() > 0)
+                if (derivedAssociation.Relations.Where(r => r.Keys.Where(k => k.Contains(expression)).Count() > 0).Count() > 0)
                 {
-                    isCountToSum = false;
-                } else if (derivedAssociation.TableName1 == mTableName)
+                    var relation = derivedAssociation.Relations.Where(r => r.Keys.Where(k => k.Contains(expression)).Count() > 0).First();
+                    if (relation.TableName2 == mTableName)
+                    {
+                        if (relation.Cardinality == Cardinality.OneToMany)
+                        {
+                            isCountToSum = true;
+                        }
+                    }
+                    else if (derivedAssociation.TableName1 == mTableName)
+                    {
+                        if (derivedAssociation.Relations[0].Cardinality == Cardinality.ManyToOne)
+                        {
+                            isCountToSum = true;
+                        }
+                    }
+                    //isCountToSum = false;
+                }
+                else if (derivedAssociation.TableName1 == mTableName)
                 {
                     if (derivedAssociation.Relations[0].Cardinality == Cardinality.ManyToOne)
                     {
@@ -502,17 +600,11 @@ namespace DashboardApi
                 }
             }
 
-
-            expression = measureExp.Replace(expression, replaceByTableName + ".\"" + measureExp + "\"");
-
-            if (isCountToSum)
-            {
-                expression =  expression.Replace("count(D","sum(D");
-            }
-
             //return (measureExp.Replace(tableName, replaceByTableName));
             //return (replaceByTableName + ".\"" + measureExp + "\"");
-            return expression;
+            return isCountToSum;
         }
+
+
     }
 }
