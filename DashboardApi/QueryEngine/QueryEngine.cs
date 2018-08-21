@@ -361,7 +361,7 @@ namespace DashboardApi
             }
 
             var filters = widgetModel.FilterList;
-            if (null != widgetModel.FilterList && widgetModel.FilterList.Count() > 0)
+            if (null != derivedAssociation && null != widgetModel.FilterList && widgetModel.FilterList.Count() > 0)
             {
                 filters =  widgetModel.FilterList.Where(f => derivedAssociation.TableName1 == f.TableName || derivedAssociation.Relations.Where(r => r.TableName2 == f.TableName).Count() > 0).ToList();
                 if (filters.Count() > 0)
