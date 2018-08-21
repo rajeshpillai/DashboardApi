@@ -27,6 +27,10 @@ namespace DashboardApi
 
             var tableQuery = query;
 
+            //var tableLeftOuterQuery = query;
+            //var tableRightOuterQuery = query.Replace("left outer", "right outer") ;
+            //var tableQuery = tableLeftOuterQuery + " union " + tableRightOuterQuery;
+
             query = "Select D.* ";
 
             if (null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
@@ -50,6 +54,7 @@ namespace DashboardApi
                 query += " limit " + widgetModel.PageSize + " offset " + widgetModel.StartRowNum;
             }
 
+
             if (widgetModel.Type == "datagrid" && widgetModel.ShowTotal && widgetModel.StartRowNum == 0 && null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
             {
                 widgetModel.IsForTotal = true;
@@ -72,6 +77,9 @@ namespace DashboardApi
                     totalSelectQuery = totalSelectQuery.Remove(totalSelectQuery.LastIndexOf(','), 1);
                 }
 
+                //var totalLeftOuterQuery = totalQuery;
+                //var totalRightOuterQuery = totalQuery.Replace("left outer", "right outer");
+                //totalQuery = totalLeftOuterQuery + " union " + totalRightOuterQuery;
 
                 totalQuery = totalSelectQuery + " from (" + totalQuery + " ) D";
 
@@ -325,7 +333,7 @@ namespace DashboardApi
                         //var tableId = dashboard.Tables.Where(t => t.Name == rel.TableName2).FirstOrDefault().Id.ToString();
                         //if(!tablesKey.Contains(tableId)) { continue; }
                         //Todo: determine the joins based on filters on tables.
-                        query += " left outer join " + rel.TableName2 + " on ";// + rel.Keys[0] + rel.Operation + rel.Keys[1] + " ";
+                        query += " full outer join " + rel.TableName2 + " on ";// + rel.Keys[0] + rel.Operation + rel.Keys[1] + " ";
                         //query = query.Join(rel.TableName2, rel.Keys[0], rel.Keys[1], rel.Operation, rel.Type);
                         foreach (var keys in rel.Keys)
                         {
