@@ -27,32 +27,32 @@ namespace DashboardApi
 
             var tableQuery = query;
 
-            //var tableLeftOuterQuery = query;
-            //var tableRightOuterQuery = query.Replace("left outer", "right outer") ;
-            //var tableQuery = tableLeftOuterQuery + " union " + tableRightOuterQuery;
+            ////var tableLeftOuterQuery = query;
+            ////var tableRightOuterQuery = query.Replace("left outer", "right outer") ;
+            ////var tableQuery = tableLeftOuterQuery + " union " + tableRightOuterQuery;
 
-            query = "Select D.* ";
+            //query = "Select D.* ";
 
-            if (null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
-            {
-                query += "," + GetMeasureString(widgetModel);
-            }
-            query += " from (" + tableQuery + ") D ";
+            //if (null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
+            //{
+            //    query += "," + GetMeasureString(widgetModel);
+            //}
+            //query += " from (" + tableQuery + ") D ";
 
-            if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0) // && !widgetModel.IsForTotal)
-            {
-                query += " group by "; // + String.Join(",", "D." + widgetModel.Dimension.Select(d => d.Name));    
+            //if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0) // && !widgetModel.IsForTotal)
+            //{
+            //    query += " group by "; // + String.Join(",", "D." + widgetModel.Dimension.Select(d => d.Name));    
                 
-                foreach(var dim in widgetModel.Dimension)
-                {
-                    query += "D.\"" + dim.Name  + "\",";
-                }
-                query = query.Remove(query.LastIndexOf(','), 1);              
-            }
-            if (widgetModel.EnablePagination && widgetModel.PageSize > 0 && !widgetModel.IsRecordCountReq && !widgetModel.IsForTotal)
-            {
-                query += " limit " + widgetModel.PageSize + " offset " + widgetModel.StartRowNum;
-            }
+            //    foreach(var dim in widgetModel.Dimension)
+            //    {
+            //        query += "D.\"" + dim.Name  + "\",";
+            //    }
+            //    query = query.Remove(query.LastIndexOf(','), 1);              
+            //}
+            //if (widgetModel.EnablePagination && widgetModel.PageSize > 0 && !widgetModel.IsRecordCountReq && !widgetModel.IsForTotal)
+            //{
+            //    query += " limit " + widgetModel.PageSize + " offset " + widgetModel.StartRowNum;
+            //}
 
 
             if (widgetModel.Type == "datagrid" && widgetModel.ShowTotal && widgetModel.StartRowNum == 0 && null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
@@ -60,28 +60,28 @@ namespace DashboardApi
                 widgetModel.IsForTotal = true;
                 var totalQuery = GetSelectQuery(widgetModel);
                 totalQuery += GetTablesAssociationQuery(widgetModel);
-                var totalSelectQuery = "select ";
-                if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0) // && !widgetModel.IsForTotal)
-                {                   
-                    foreach (var dim in widgetModel.Dimension)
-                    {
-                        totalSelectQuery += "null as \"" + dim.Name + "\",";
-                    }
+                //var totalSelectQuery = "select ";
+                //if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0) // && !widgetModel.IsForTotal)
+                //{                   
+                //    foreach (var dim in widgetModel.Dimension)
+                //    {
+                //        totalSelectQuery += "null as \"" + dim.Name + "\",";
+                //    }
 
-                    foreach (var m in widgetModel.Measure)
-                    {
+                //    foreach (var m in widgetModel.Measure)
+                //    {
                         
-                        totalSelectQuery += ReplaceTableNameOfMeasure(widgetModel, m.Expression, "D") + " as \"" + m.Expression + "\",";
-                    }
+                //        totalSelectQuery += ReplaceTableNameOfMeasure(widgetModel, m.Expression, "D") + " as \"" + m.Expression + "\",";
+                //    }
 
-                    totalSelectQuery = totalSelectQuery.Remove(totalSelectQuery.LastIndexOf(','), 1);
-                }
+                //    totalSelectQuery = totalSelectQuery.Remove(totalSelectQuery.LastIndexOf(','), 1);
+                //}
 
-                //var totalLeftOuterQuery = totalQuery;
-                //var totalRightOuterQuery = totalQuery.Replace("left outer", "right outer");
-                //totalQuery = totalLeftOuterQuery + " union " + totalRightOuterQuery;
+                ////var totalLeftOuterQuery = totalQuery;
+                ////var totalRightOuterQuery = totalQuery.Replace("left outer", "right outer");
+                ////totalQuery = totalLeftOuterQuery + " union " + totalRightOuterQuery;
 
-                totalQuery = totalSelectQuery + " from (" + totalQuery + " ) D";
+                //totalQuery = totalSelectQuery + " from (" + totalQuery + " ) D";
 
                 query = totalQuery + " union all " + query;
             }
@@ -99,19 +99,19 @@ namespace DashboardApi
             query = GetSelectQuery(widgetModel);
             query += GetTablesAssociationQuery(widgetModel);
 
-            //query = "Select D.*," + GetMeasureString(widgetModel) + " from (" + query + ") D ";
-            query = "Select D.* from (" + query + ") D ";
+            ////query = "Select D.*," + GetMeasureString(widgetModel) + " from (" + query + ") D ";
+            //query = "Select D.* from (" + query + ") D ";
 
-            if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0 ) //&& !widgetModel.IsForTotal)
-            {
-                query += " group by "; // + String.Join(",", "D." + widgetModel.Dimension.Select(d => d.Name));    
+            //if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0 ) //&& !widgetModel.IsForTotal)
+            //{
+            //    query += " group by "; // + String.Join(",", "D." + widgetModel.Dimension.Select(d => d.Name));    
 
-                foreach (var dim in widgetModel.Dimension)
-                {
-                    query += "D.\"" + dim.Name + "\",";
-                }
-                query = query.Remove(query.LastIndexOf(','), 1);
-            }
+            //    foreach (var dim in widgetModel.Dimension)
+            //    {
+            //        query += "D.\"" + dim.Name + "\",";
+            //    }
+            //    query = query.Remove(query.LastIndexOf(','), 1);
+            //}
 
             query = "Select count(*) as totalRowsCount from (" + query + ") as t1";
 
@@ -200,45 +200,93 @@ namespace DashboardApi
                     var mTableName = GetTableNameOfMeasure(measure.Expression);
                     var expression = measure.Expression.Trim();
 
-                    if (null != derivedAssociation && expression.IndexOf("sum") != -1) //Only for sum
+                    if (null != derivedAssociation && (expression.IndexOf("sum") != -1 || expression.IndexOf("count") != -1)) //Only for sum/count
                     {
                         if (!isMeasureToBeConsidered)
                         {
                             expression = "0";
                         }
-                        else if (derivedAssociation.TableName1 == mTableName)
-                        {
-                            if (derivedAssociation.Relations[0].Cardinality == Cardinality.OneToMany)
-                            {
-                                expression = expression + "/count(" + derivedAssociation.Relations[0].Keys[0][0] + ")"; //divide by count
-                            }
-                        }
                         else
                         {
-                            var matchedRel = derivedAssociation.Relations.Where(r => r.TableName2 == mTableName).FirstOrDefault();
-                            if (matchedRel.Cardinality == Cardinality.ManyToOne)
+                            //if (IsDistinctAppl(widgetModel, expression))
+                            if (IsKeyField(widgetModel, expression) && IsDistinctAppl(widgetModel, expression)) //Temporary fix till we get column is measure or not
                             {
-                                expression += expression + "/count(" + matchedRel.Keys[0][1] + ")"; //divide by count
+                                expression = GetDistinctExp(widgetModel, expression);
+                            } else 
+                            
+                            if (derivedAssociation.TableName1 == mTableName)
+                            {
+                                if (derivedAssociation.Relations[0].Cardinality == Cardinality.OneToMany && !IsKeyField(widgetModel, expression))
+                                {
+                                    var divisibleBy = "count(" + derivedAssociation.Relations[0].Keys[0][0] + ")";                                    
+                                    expression = "CASE WHEN " + divisibleBy + "=0 THEN " + expression + " ELSE (" + expression + "* count(distinct " + derivedAssociation.Relations[0].Keys[0][0] + "))/"+ divisibleBy + " END "; //divide by count
+                                }
+                            }
+                            else
+                            {
+                                var matchedRel = derivedAssociation.Relations.Where(r => r.TableName2 == mTableName).FirstOrDefault();
+                                if (matchedRel.Cardinality == Cardinality.ManyToOne && !IsKeyField(widgetModel, expression))
+                                {
+                                    var divisibleBy = "count(" + matchedRel.Keys[0][0] + ")";                                   
+                                    //expression += expression + "/count(" + matchedRel.Keys[0][1] + ")"; //divide by count
+                                    expression = "CASE WHEN " + divisibleBy + "=0 THEN " + expression + " ELSE (" + expression + "* count(distinct " + derivedAssociation.Relations[0].Keys[0][1] + "))/" + divisibleBy + " END "; //divide by count
+                                }
                             }
                         }
                     } 
-                    else if (null != derivedAssociation && expression.IndexOf("count") != -1) //Only for count
-                    {
-                        if (!isMeasureToBeConsidered)
-                        {
-                            expression = "null";
-                        }
-                        else
-                        {
-                            bool isCountToSum = IsCountToSum(widgetModel, expression);
-                            if (!isCountToSum)
-                            {
-                                //add null condition i count is zero
-                                //CASE WHEN count(orders.ordernumber) = 0 THEN null ELSE count(orders.ordernumber) END
-                                expression = "CASE WHEN " + expression + "= 0 THEN null ELSE " + expression + " END ";
-                            }
-                        }
-                    }
+                    //else if (null != derivedAssociation && expression.IndexOf("count") != -1) //Only for count
+                    //{
+                    //    if (!isMeasureToBeConsidered)
+                    //    {
+                    //        expression = "null";
+                    //    }
+                    //    else
+                    //    {
+                    //        ////if (IsKeyField(widgetModel, expression))
+                    //        ////{
+                    //        //    var tableName = GetTableNameOfMeasure(expression);
+                    //        //    var tableId = this.dashboard.Tables.Where(t => t.Name == tableName).First().Id;
+                    //        //    //if(widgetModel.TablesKey.Split(',')[0] == tableId.ToString())
+                    //        //    //{
+                    //        //    //    expression = GetDistinctExp(widgetModel, expression);
+                    //        //    //}
+                    //        //var tablesKeySplit = widgetModel.TablesKey.Split(',');
+                    //        //for (var i = 0; i < tablesKeySplit.Count(); i++)
+                    //        //{
+                    //        //    var relationCount = i;
+                    //        //    if (i == 0)
+                    //        //    {
+                    //        //        relationCount = 0;                                    
+                    //        //    }
+                    //        //    else
+                    //        //    {
+                    //        //        relationCount = i - 1;
+                    //        //    }
+                    //        //    if (derivedAssociation.Relations[i].Cardinality == Cardinality.ManyToOne)
+                    //        //    {
+                    //        //        break;
+                    //        //    }
+                    //        //    if (tableId.ToString() == tablesKeySplit[i])
+                    //        //    {
+                    //        //        expression = GetDistinctExp(widgetModel, expression);
+                    //        //    }
+                    //        //}
+
+                    //        if (IsDistinctAppl(widgetModel, expression))
+                    //        {
+                    //            expression = GetDistinctExp(widgetModel, expression);
+                    //        }
+                    //            //expression = GetDistinctExp(widgetModel, expression);
+                    //       // }
+                    //        //bool isCountToSum = IsCountToSum(widgetModel, expression);
+                    //        //if (!isCountToSum)
+                    //        //{
+                    //        //    //add null condition i count is zero
+                    //        //    //CASE WHEN count(orders.ordernumber) = 0 THEN null ELSE count(orders.ordernumber) END
+                    //        //    expression = "CASE WHEN " + expression + "= 0 THEN null ELSE " + expression + " END ";
+                    //        //}
+                    //    }
+                    //}
 
                     //measures.Append(string.Format("{0} ", measure.Expression.Trim()) + ", ");
                     if (!string.IsNullOrWhiteSpace(measure.DisplayName))
@@ -343,10 +391,10 @@ namespace DashboardApi
                         query = query.Substring(0, query.LastIndexOf("and"));
 
                     }
-                    if (null != groupByAssociationKeys)
-                    {
-                        groupByAssociationKeys = groupByAssociationKeys.Substring(0, groupByAssociationKeys.LastIndexOf(","));
-                    }
+                    //if (null != groupByAssociationKeys)
+                    //{
+                    //    groupByAssociationKeys = groupByAssociationKeys.Substring(0, groupByAssociationKeys.LastIndexOf(","));
+                    //}
                 }
             }
             else
@@ -363,7 +411,12 @@ namespace DashboardApi
             var filters = widgetModel.FilterList;
             if (null != derivedAssociation && null != widgetModel.FilterList && widgetModel.FilterList.Count() > 0)
             {
-                filters =  widgetModel.FilterList.Where(f => derivedAssociation.TableName1 == f.TableName || derivedAssociation.Relations.Where(r => r.TableName2 == f.TableName).Count() > 0).ToList();
+                if (null != derivedAssociation)
+                {
+                    filters = widgetModel.FilterList.Where(f => derivedAssociation.TableName1 == f.TableName || derivedAssociation.Relations.Where(r => r.TableName2 == f.TableName).Count() > 0).ToList();
+                }
+            }
+                
                 if (filters.Count() > 0)
                 {
                     query += (query.Contains("where")) ? " " : " where ";
@@ -380,7 +433,7 @@ namespace DashboardApi
                     }
                     query = query.Substring(0, query.LastIndexOf("and"));
                 }
-            }
+            
 
             if (null != widgetModel.SearchList && widgetModel.SearchList.Count() > 0)
             {
@@ -392,22 +445,22 @@ namespace DashboardApi
                 query = query.Substring(0, query.LastIndexOf("and"));
             }
 
-            if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0) // && !widgetModel.IsForTotal)
+            if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0 && null != widgetModel.Measure && widgetModel.Measure.Length > 0 && !widgetModel.IsForTotal) // && !widgetModel.IsForTotal)
             {
                 //query = query.GroupBy(widgetModel.Dimension.Select(d => d.Name).ToArray<string>());
 
                 query += " group by " + String.Join(",", widgetModel.Dimension.Select(d => d.Name));
-                if(null != groupByAssociationKeys)
-                {
-                    query += "," + groupByAssociationKeys;
-                }
+                //if(null != groupByAssociationKeys)
+                //{
+                //    query += "," + groupByAssociationKeys;
+                //}
               
             }
 
-            //if(widgetModel.EnablePagination && widgetModel.PageSize > 0 && !widgetModel.IsRecordCountReq && !widgetModel.IsForTotal)
-            //{
-            //    query += " limit " + widgetModel.PageSize + " offset " + widgetModel.StartRowNum;
-            //}
+            if (widgetModel.EnablePagination && widgetModel.PageSize > 0 && !widgetModel.IsRecordCountReq && !widgetModel.IsForTotal)
+            {
+                query += " limit " + widgetModel.PageSize + " offset " + widgetModel.StartRowNum;
+            }
 
             //query += " limit 1000" + " offset 0";
 
@@ -440,7 +493,7 @@ namespace DashboardApi
 
             if (null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
             {
-                var replacementStrings = new string[5] { "sum", "count", "avg", "(", ")" };
+                var replacementStrings = new string[6] { "sum", "count", "avg", "(", ")", "distinct" };
                 foreach (var measure in widgetModel.Measure)
                 {
                     var expression = measure.Expression;
@@ -520,7 +573,7 @@ namespace DashboardApi
 
         private string GetTableNameOfMeasure(string measureExp)
         {
-            var replacementStrings = new string[5] { "sum", "count", "avg", "(", ")" };
+            var replacementStrings = new string[6] { "sum", "count", "avg", "(", ")", "distinct" };
             
             var expression = measureExp;
             //if (string.IsNullOrWhiteSpace(expression)) { continue; }
@@ -534,7 +587,7 @@ namespace DashboardApi
 
         private string ReplaceTableNameOfMeasure(WidgetModel widgetModel, string measureExp, string replaceByTableName)
         {
-            var replacementStrings = new string[5] { "sum", "count", "avg", "(", ")" };
+            var replacementStrings = new string[6] { "sum", "count", "avg", "(", ")", "distinct" };
             var mTableName = GetTableNameOfMeasure(measureExp);
             var expression = measureExp;
             //DerivedAssociation derivedAssociation = null;
@@ -586,8 +639,13 @@ namespace DashboardApi
             //    }
             //}
 
+            if (widgetModel.TablesKey.Split(',').Length > 1){
+                expression = measureExp.Replace(expression, replaceByTableName + ".\"" + measureExp + "\"");
+            } else {
+                expression = replaceByTableName + ".\"" + measureExp + "\"";
+            }
 
-            expression = measureExp.Replace(expression, replaceByTableName + ".\"" + measureExp + "\"");
+            
 
             if (isCountToSum)
             {
@@ -602,7 +660,7 @@ namespace DashboardApi
 
         private bool IsCountToSum(WidgetModel widgetModel, string measureExp)
         {
-            var replacementStrings = new string[5] { "sum", "count", "avg", "(", ")" };
+            var replacementStrings = new string[6] { "sum", "count", "avg", "(", ")", "distinct" };
             var mTableName = GetTableNameOfMeasure(measureExp);
             var expression = measureExp;
             DerivedAssociation derivedAssociation = null;
@@ -659,6 +717,170 @@ namespace DashboardApi
             //return (measureExp.Replace(tableName, replaceByTableName));
             //return (replaceByTableName + ".\"" + measureExp + "\"");
             return isCountToSum;
+        }
+
+        private bool IsDistinctAppl(WidgetModel widgetModel, string expression)
+        {
+            bool appl = false;
+            DerivedAssociation derivedAssociation = null;
+            if (dashboard.TableAssociationHash.ContainsKey(widgetModel.TablesKey))
+            {
+                derivedAssociation = dashboard.TableAssociationHash[widgetModel.TablesKey];
+            }
+            if (null != derivedAssociation) // && measureExp.IndexOf("count") != -1
+            {
+                var tableName = GetTableNameOfMeasure(expression);
+                var tableId = this.dashboard.Tables.Where(t => t.Name == tableName).First().Id;
+                //if(widgetModel.TablesKey.Split(',')[0] == tableId.ToString())
+                //{
+                //    expression = GetDistinctExp(widgetModel, expression);
+                //}
+                var tablesKeySplit = widgetModel.TablesKey.Split(',');
+                for (var i = 0; i < tablesKeySplit.Count(); i++)
+                {
+                    var relationCount = i;
+                    if (i == 0)
+                    {
+                        relationCount = 0;
+                    }
+                    else
+                    {
+                        relationCount = i - 1;
+                    }
+                    if (i < derivedAssociation.Relations.Count())
+                    {
+                        if (derivedAssociation.Relations[i].Cardinality == Cardinality.ManyToOne)
+                        {
+                            break;
+                        }
+                        if (derivedAssociation.TableName1 == tableName && (derivedAssociation.Relations[0].Cardinality == Cardinality.OneToOne || derivedAssociation.Relations[0].Cardinality == Cardinality.OneToMany))
+                        {
+                            appl = true;
+                            break;
+                        } else if (derivedAssociation.Relations[i].TableName2 == tableName)
+                        {
+                            if (derivedAssociation.Relations[i].Cardinality == Cardinality.OneToOne)
+                            {
+                                appl = true;
+                                break;
+                            }
+                        }
+
+
+                    }
+                    //if (tableId.ToString() == tablesKeySplit[i])
+                    //{
+                    //    //expression = GetDistinctExp(widgetModel, expression);
+                    //    appl = true;
+                    //}
+                }
+            }
+
+            return appl;
+        }
+
+        private bool IsKeyField(WidgetModel widgetModel, string measureExp)
+        {
+            var replacementStrings = new string[6] { "sum", "count", "avg", "(", ")", "distinct" };
+            var mTableName = GetTableNameOfMeasure(measureExp);
+            var expression = measureExp;
+            DerivedAssociation derivedAssociation = null;
+            if (dashboard.TableAssociationHash.ContainsKey(widgetModel.TablesKey))
+            {
+                derivedAssociation = dashboard.TableAssociationHash[widgetModel.TablesKey];
+            }
+            //if (string.IsNullOrWhiteSpace(expression)) { continue; }
+            foreach (var r in replacementStrings)
+            {
+                expression = expression.Replace(r, "");
+            }
+            expression = expression.Trim();
+            bool isKeyField = false;
+
+            if (null != derivedAssociation) // && measureExp.IndexOf("count") != -1
+            {
+                if (derivedAssociation.Relations.Where(r => r.Keys.Where(k => k.Contains(expression)).Count() > 0).Count() > 0)
+                {
+                    isKeyField = true;
+                }
+            }
+
+            return isKeyField;
+        }
+
+        //private bool IsKeyField(WidgetModel widgetModel, string measureExp)
+        //{
+        //    var replacementStrings = new string[6] { "sum", "count", "avg", "(", ")", "distinct" };
+        //    var mTableName = GetTableNameOfMeasure(measureExp);
+        //    var expression = measureExp;
+        //    DerivedAssociation derivedAssociation = null;
+        //    if (dashboard.TableAssociationHash.ContainsKey(widgetModel.TablesKey))
+        //    {
+        //        derivedAssociation = dashboard.TableAssociationHash[widgetModel.TablesKey];
+        //    }
+        //    //if (string.IsNullOrWhiteSpace(expression)) { continue; }
+        //    foreach (var r in replacementStrings)
+        //    {
+        //        expression = expression.Replace(r, "");
+        //    }
+        //    expression = expression.Trim();
+        //    bool isKeyField = false;
+
+        //    if (null != derivedAssociation && measureExp.IndexOf("count") != -1) //Only for count
+        //    {
+        //        if (derivedAssociation.Relations.Where(r => r.Keys.Where(k => k.Contains(expression)).Count() > 0).Count() > 0)
+        //        {
+        //            if (derivedAssociation.TableName1 == mTableName)
+        //            {
+        //                if (derivedAssociation.Relations[0].Cardinality == Cardinality.OneToMany)
+        //                {
+        //                    isKeyField = true;
+        //                }
+        //            } else
+        //            {
+        //                var relation = derivedAssociation.Relations.Where(r => r.Keys.Where(k => k.Contains(expression)).Count() > 0).First();
+        //                if(relation.Keys[0][0] == expression)
+        //                {
+        //                    if (relation.Cardinality == Cardinality.OneToMany)
+        //                    {
+        //                        isKeyField = true;
+        //                    }
+        //                } else
+        //                {
+        //                    if (relation.Cardinality == Cardinality.ManyToOne)
+        //                    {
+        //                        isKeyField = true;
+        //                    }
+        //                }                      
+        //            }
+
+        //        }                
+        //    }
+
+        //    return isKeyField;
+        //}
+
+
+        private string GetDistinctExp(WidgetModel widgetModel, string measureExp)
+        {
+            if(measureExp.IndexOf("distinct") != -1) { return measureExp; }
+            var replacementStrings = new string[6] { "sum", "count", "avg", "(", ")", "distinct" };
+            var mTableName = GetTableNameOfMeasure(measureExp);
+            var expression = measureExp;
+            DerivedAssociation derivedAssociation = null;
+            if (dashboard.TableAssociationHash.ContainsKey(widgetModel.TablesKey))
+            {
+                derivedAssociation = dashboard.TableAssociationHash[widgetModel.TablesKey];
+            }
+            //if (string.IsNullOrWhiteSpace(expression)) { continue; }
+            foreach (var r in replacementStrings)
+            {
+                expression = expression.Replace(r, "");
+            }
+            expression = expression.Trim();
+            measureExp = measureExp.Replace(expression, "Distinct " + expression);
+
+            return measureExp;
         }
 
 

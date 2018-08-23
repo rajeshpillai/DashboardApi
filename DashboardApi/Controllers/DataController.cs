@@ -193,7 +193,7 @@ namespace DashboardApi.Controllers
             return employees;
         }
 
-        private void BuildTableMetatdata()
+        private void BuildTableMetatdata(WidgetModel widgetModel)
         {
             dashboard = new Dashboard();
 
@@ -222,7 +222,7 @@ namespace DashboardApi.Controllers
                 dashboard.AddTable(new Table() { Name = o.name });
             }
            
-            dashboard.Associations = GetAllTableAssociations();
+            dashboard.Associations = GetAllTableAssociations(widgetModel.AppTitle);
 
             var tablesCount = dashboard.Tables.Count();
 
@@ -342,59 +342,65 @@ namespace DashboardApi.Controllers
 
             MemoryCache.Default.Set("dashboard", dashboard, null,null);
 
+            //Save TableAssociationHash in file
+            var associationsPath = Common.GetAppPath(widgetModel.AppTitle);
+            associationsPath += @"\associationHash.assocHash";
+            var compressionHelper = new CompressionHelper<Dictionary<string, DerivedAssociation>>();
+            compressionHelper.CompressAndSaveLZ4(TableAssociationHash, associationsPath);
+
         }
 
-        // GET: api/Data
-        [Route("api/data/getall")]
-        [HttpGet]
-        [EnableCors(origins: "http://localhost:3000", headers: "*", methods: "*")]
-        public IEnumerable<dynamic> GetAll()
-        {
+        //// GET: api/Data
+        //[Route("api/data/getall")]
+        //[HttpGet]
+        //[EnableCors(origins: "http://localhost:3000", headers: "*", methods: "*")]
+        //public IEnumerable<dynamic> GetAll()
+        //{
            
-            var connection = new MySqlConnection(
-             "Host=localhost;Port=3306;User=root;Password=root123;Database=adventureworks;SslMode=None"
-            );
-            var db = new QueryFactory(connection, new MySqlCompiler());
+        //    var connection = new MySqlConnection(
+        //     "Host=localhost;Port=3306;User=root;Password=root123;Database=adventureworks;SslMode=None"
+        //    );
+        //    var db = new QueryFactory(connection, new MySqlCompiler());
 
-            var associations = GetAllTableAssociations();
+        //    var associations = GetAllTableAssociations();
 
 
-            int count = 0;
-            Query query = null;
-            foreach (var a in associations)
-            {
-                if (count == 0)
-                {
-                    query = db.Query(a.TableName);
-                }
+        //    int count = 0;
+        //    Query query = null;
+        //    foreach (var a in associations)
+        //    {
+        //        if (count == 0)
+        //        {
+        //            query = db.Query(a.TableName);
+        //        }
 
-                foreach (var relation in a.Relations)
-                {
-                    foreach(var keys in relation.Keys)
-                    {
-                        query = query.Join(relation.TableName2, keys[0], keys[1], relation.Operation, relation.Type);
-                    }
+        //        foreach (var relation in a.Relations)
+        //        {
+        //            foreach(var keys in relation.Keys)
+        //            {
+        //                query = query.Join(relation.TableName2, keys[0], keys[1], relation.Operation, relation.Type);
+        //            }
                     
-                }
+        //        }
 
-                count++;
-            }
+        //        count++;
+        //    }
 
-            ///db.Query("Product").Join("ProductInventory", "Product.ProductId", "ProductInventory.ProductId", "=", "inner").Select("Product.Name");
+        //    ///db.Query("Product").Join("ProductInventory", "Product.ProductId", "ProductInventory.ProductId", "=", "inner").Select("Product.Name");
 
-            var data = query.Get();
+        //    var data = query.Get();
 
-            //var data =  db.Query("Product").Join("ProductInventory", "Product.ProductId", "ProductInventory.ProductId", "=", "inner").Select("Product.Name").Get();
+        //    //var data =  db.Query("Product").Join("ProductInventory", "Product.ProductId", "ProductInventory.ProductId", "=", "inner").Select("Product.Name").Get();
 
-            var employees = db.Query("employee").Get();
+        //    var employees = db.Query("employee").Get();
 
-            //SqlResult result = compiler.Compile(query);
+        //    //SqlResult result = compiler.Compile(query);
 
-            //var users = new XQuery(connection, compiler).From("Users").Limit(10).Get();
+        //    //var users = new XQuery(connection, compiler).From("Users").Limit(10).Get();
 
 
-            return employees;
-        }
+        //    return employees;
+        //}
 
 
         //// GET: api/Data
@@ -605,7 +611,7 @@ namespace DashboardApi.Controllers
         [HttpPost]
         public dynamic GetData(WidgetModel widgetModel)
         {
-            BuildTableMetatdata();
+            BuildTableMetatdata(widgetModel);
 
             if (widgetModel.Type == "kpi" && (null == widgetModel.Measure || (null != widgetModel.Measure && widgetModel.Measure.Length == 0)))
             {
@@ -682,7 +688,7 @@ namespace DashboardApi.Controllers
         public dynamic GetTotalRecordsCount(WidgetModel widgetModel)
         {
             //var recordsCount = 0;
-            BuildTableMetatdata();
+            BuildTableMetatdata(widgetModel);
 
             if (widgetModel.Type == "kpi" && (null == widgetModel.Measure || (null != widgetModel.Measure && widgetModel.Measure.Length == 0)))
             {
@@ -747,7 +753,7 @@ namespace DashboardApi.Controllers
         [HttpPost]
         public IEnumerable<dynamic> GetDataWorkingWithMariaDB(WidgetModel widgetModel)
         {
-            BuildTableMetatdata();
+            BuildTableMetatdata(widgetModel);
 
             IEnumerable<dynamic> data = null;
             Query query = null;
@@ -881,22 +887,41 @@ namespace DashboardApi.Controllers
 
         [Route("api/data/savePageData")]
         [HttpPost]
-        public void SavePageData(object data)
+        public void SavePageLayout(PageLayoutModel pageLayoutModel)
         {
-            PageData = data;
+
+            //PageData = pageLayoutModel.Layout;
+
+            var associationsPath = Common.GetAppPath(pageLayoutModel.AppTitle);
+            associationsPath += @"\page_" + pageLayoutModel.PageId.ToString() + ".pgl";
+            var compressionHelper = new CompressionHelper<object>();
+            compressionHelper.CompressAndSaveJsonLZ4(pageLayoutModel.Layout, associationsPath);
         }
 
         [Route("api/data/getPageData")]
         [HttpPost]
         public object GetPageData(dynamic criteria)
         {
-            var appId = criteria.appId;
-            var pageId = criteria.pageId;
+            var appId = criteria.appId.Value;
+            var pageId = criteria.pageId.Value;
+            var appTitle = criteria.appTitle.Value;
             //if (null != PageData)
             //{
             //    PageData.Where(p=>p.pageId == pageId)
             //}
-            return PageData;
+
+            var associationsPath = Common.GetAppPath(appTitle);
+            associationsPath += @"\page_" + pageId.ToString() + ".pgl";
+
+            if (File.Exists(associationsPath))
+            {
+                var compressionHelper = new CompressionHelper<object>();
+                var pageLayout = compressionHelper.ReadCompressJsonLZ4(associationsPath);
+                return pageLayout;
+            }
+            return null;
+
+            //return PageData;
         }
 
         [Route("api/data/getTables")]
@@ -936,6 +961,8 @@ namespace DashboardApi.Controllers
         [HttpPost]
         public void SaveTableAssociation(AssociationModel associationModel)
         {
+            MemoryCache.Default.Remove("dashboard", null);
+
             var associations = TableAssociations;
             if(null == associations)
             {
@@ -990,6 +1017,12 @@ namespace DashboardApi.Controllers
                 //associations.Add(newAssociation);
             }
             TableAssociations = associations;
+
+            //Save Associations in file.
+            var associationsPath = Common.GetAppPath(associationModel.AppTitle);
+            associationsPath += @"\association.assoc";
+            var compressionHelper = new CompressionHelper<List<Association>>();
+            compressionHelper.CompressAndSaveLZ4(associations, associationsPath);
         }
 
         [Route("api/data/importTable")]
@@ -1156,120 +1189,127 @@ public static string GetSqlType(object type, int columnSize, int numericPrecisio
             }
         }
 
-        private static List<Association> GetAllTableAssociations()
+        private static List<Association> GetAllTableAssociations(string appTitle)
         {            
             if(null != TableAssociations)
             {
                 return TableAssociations;
+            } else
+            {
+                //Read from File
+                var associationsPath = Common.GetAppPath(appTitle);
+                associationsPath += @"\association.assoc";
+                var compressionHelper = new CompressionHelper<List<Association>>();
+                return compressionHelper.ReadCompressSharpLZ4(associationsPath);
             }
-            var associations = new List<Association>();
-            var association = new Association();
+            //var associations = new List<Association>();
+            //var association = new Association();
             
-            association.TableName = "employee1";
-            var relations = new List<Relation>();
-            var rel = new Relation() { TableName2 = "skills1", Type = "left" };
-            rel.Keys = new List<List<string>>();
-            var keys = new List<string>();
-            keys.Add("employee1.empid");
-            keys.Add("skills1.empid");
-            rel.Keys.Add(keys);
-            rel.Operation = "=";
-            relations.Add(rel);
-            association.Relations = relations;
-            associations.Add(association);
-
-            association = new Association();
-            association.TableName = "Skills1";
-            relations = new List<Relation>();
-            rel = new Relation() { TableName2 = "employee1", Type = "left" , Keys = new List<List<string>>() };
-            keys = new List<string>();
-            keys.Add("employee1.empid");
-            keys.Add("skills1.empid");
-            rel.Keys.Add(keys);
-            rel.Operation = "=";
-            relations.Add(rel);
-            association.Relations = relations;
-            associations.Add(association);
-
-            //association.TableName = "Product";
+            //association.TableName = "employee1";
             //var relations = new List<Relation>();
-            //var rel = new Relation() { TableName2 = "ProductInventory", Type = "left" };          
+            //var rel = new Relation() { TableName2 = "skills1", Type = "left" };
+            //rel.Keys = new List<List<string>>();
             //var keys = new List<string>();
-            //keys.Add("Product.ProductId");
-            //keys.Add("ProductInventory.ProductId");
-            //rel.Keys = keys;
-            //rel.Operation = "=";
-            //relations.Add(rel);
-            //var rel2 = new Relation() { TableName2 = "ProductVendor", Type = "left" };
-            //var keys2 = new List<string>();
-            //keys2.Add("Product.ProductId");
-            //keys2.Add("ProductVendor.ProductId");
-            //rel2.Keys = keys2;
-            //rel2.Operation = "=";
-            //relations.Add(rel2);
-            //rel2 = new Relation() { TableName2 = "PurchaseOrderDetail", Type = "left" };
-            //keys2 = new List<string>();
-            //keys2.Add("Product.ProductId");
-            //keys2.Add("PurchaseOrderDetail.ProductId");
-            //rel2.Keys = keys2;
-            //rel2.Operation = "=";
-            //relations.Add(rel2);
-            //association.Relations = relations;
-            //associations.Add(association);
-
-            //association = new Association();
-            //association.TableName = "ProductInventory";
-            //relations = new List<Relation>();
-            //rel = new Relation() { TableName2 = "Product", Type = "left" };
-            //keys = new List<string>();
-            //keys.Add("Product.ProductId");
-            //keys.Add("ProductInventory.ProductId");
-            //rel.Keys = keys;
+            //keys.Add("employee1.empid");
+            //keys.Add("skills1.empid");
+            //rel.Keys.Add(keys);
             //rel.Operation = "=";
             //relations.Add(rel);
             //association.Relations = relations;
             //associations.Add(association);
 
             //association = new Association();
-            //association.TableName = "ProductVendor";
+            //association.TableName = "Skills1";
             //relations = new List<Relation>();
-            //rel = new Relation() { TableName2 = "Product", Type = "left" };
+            //rel = new Relation() { TableName2 = "employee1", Type = "left" , Keys = new List<List<string>>() };
             //keys = new List<string>();
-            //keys.Add("Product.ProductId");
-            //keys.Add("ProductVendor.ProductId");
-            //rel.Keys = keys;
+            //keys.Add("employee1.empid");
+            //keys.Add("skills1.empid");
+            //rel.Keys.Add(keys);
             //rel.Operation = "=";
             //relations.Add(rel);
             //association.Relations = relations;
             //associations.Add(association);
 
-            //association = new Association();
-            //association.TableName = "PurchaseOrderDetail";
-            //relations = new List<Relation>();
-            //rel = new Relation() { TableName2 = "PurchaseOrderHeader", Type = "left" };
-            //keys = new List<string>();
-            //keys.Add("PurchaseOrderDetail.PurchaseOrderId");
-            //keys.Add("PurchaseOrderHeader.PurchaseOrderId");
-            //rel.Keys = keys;
-            //rel.Operation = "=";
-            //relations.Add(rel);
-            //association.Relations = relations;
-            //associations.Add(association);
+            ////association.TableName = "Product";
+            ////var relations = new List<Relation>();
+            ////var rel = new Relation() { TableName2 = "ProductInventory", Type = "left" };          
+            ////var keys = new List<string>();
+            ////keys.Add("Product.ProductId");
+            ////keys.Add("ProductInventory.ProductId");
+            ////rel.Keys = keys;
+            ////rel.Operation = "=";
+            ////relations.Add(rel);
+            ////var rel2 = new Relation() { TableName2 = "ProductVendor", Type = "left" };
+            ////var keys2 = new List<string>();
+            ////keys2.Add("Product.ProductId");
+            ////keys2.Add("ProductVendor.ProductId");
+            ////rel2.Keys = keys2;
+            ////rel2.Operation = "=";
+            ////relations.Add(rel2);
+            ////rel2 = new Relation() { TableName2 = "PurchaseOrderDetail", Type = "left" };
+            ////keys2 = new List<string>();
+            ////keys2.Add("Product.ProductId");
+            ////keys2.Add("PurchaseOrderDetail.ProductId");
+            ////rel2.Keys = keys2;
+            ////rel2.Operation = "=";
+            ////relations.Add(rel2);
+            ////association.Relations = relations;
+            ////associations.Add(association);
 
-            //association = new Association();
-            //association.TableName = "PurchaseOrderHeader";
-            //relations = new List<Relation>();
-            //rel = new Relation() { TableName2 = "PurchaseOrderDetail", Type = "left" };
-            //keys = new List<string>();
-            //keys.Add("PurchaseOrderDetail.PurchaseOrderId");
-            //keys.Add("PurchaseOrderHeader.PurchaseOrderId");
-            //rel.Keys = keys;
-            //rel.Operation = "=";
-            //relations.Add(rel);
-            //association.Relations = relations;
-            //associations.Add(association);
+            ////association = new Association();
+            ////association.TableName = "ProductInventory";
+            ////relations = new List<Relation>();
+            ////rel = new Relation() { TableName2 = "Product", Type = "left" };
+            ////keys = new List<string>();
+            ////keys.Add("Product.ProductId");
+            ////keys.Add("ProductInventory.ProductId");
+            ////rel.Keys = keys;
+            ////rel.Operation = "=";
+            ////relations.Add(rel);
+            ////association.Relations = relations;
+            ////associations.Add(association);
 
-            return associations;
+            ////association = new Association();
+            ////association.TableName = "ProductVendor";
+            ////relations = new List<Relation>();
+            ////rel = new Relation() { TableName2 = "Product", Type = "left" };
+            ////keys = new List<string>();
+            ////keys.Add("Product.ProductId");
+            ////keys.Add("ProductVendor.ProductId");
+            ////rel.Keys = keys;
+            ////rel.Operation = "=";
+            ////relations.Add(rel);
+            ////association.Relations = relations;
+            ////associations.Add(association);
+
+            ////association = new Association();
+            ////association.TableName = "PurchaseOrderDetail";
+            ////relations = new List<Relation>();
+            ////rel = new Relation() { TableName2 = "PurchaseOrderHeader", Type = "left" };
+            ////keys = new List<string>();
+            ////keys.Add("PurchaseOrderDetail.PurchaseOrderId");
+            ////keys.Add("PurchaseOrderHeader.PurchaseOrderId");
+            ////rel.Keys = keys;
+            ////rel.Operation = "=";
+            ////relations.Add(rel);
+            ////association.Relations = relations;
+            ////associations.Add(association);
+
+            ////association = new Association();
+            ////association.TableName = "PurchaseOrderHeader";
+            ////relations = new List<Relation>();
+            ////rel = new Relation() { TableName2 = "PurchaseOrderDetail", Type = "left" };
+            ////keys = new List<string>();
+            ////keys.Add("PurchaseOrderDetail.PurchaseOrderId");
+            ////keys.Add("PurchaseOrderHeader.PurchaseOrderId");
+            ////rel.Keys = keys;
+            ////rel.Operation = "=";
+            ////relations.Add(rel);
+            ////association.Relations = relations;
+            ////associations.Add(association);
+
+            //return associations;
 
         }
 

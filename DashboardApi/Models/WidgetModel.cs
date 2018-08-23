@@ -48,7 +48,13 @@ namespace DashboardApi.Models
         public Measure[] Aggr { get; set; }
 
         public List<FixedFilter> AggrFilter { get; set; }
-       
+
+        public int AppId { get; set; }
+
+        public string AppTitle { get; set; }
+
+        public int PageId { get; set; }
+
 
         public string SqlTableName
         {
@@ -240,6 +246,7 @@ namespace DashboardApi.Models
     {
         public Association Association { get; set; }
         public int AppId { get; set; }
+        public string AppTitle { get; set; }
     }
    
 }
