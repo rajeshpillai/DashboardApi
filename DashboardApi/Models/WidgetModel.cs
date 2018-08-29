@@ -248,5 +248,29 @@ namespace DashboardApi.Models
         public int AppId { get; set; }
         public string AppTitle { get; set; }
     }
+
+    public class AppModel
+    {
+        public AppModel()
+        {
+            this.Pages = new List<Page>();
+        }
+        public int Id { get; set; }
+
+        public string Title { get; set; }
+
+        public List<Page> Pages { get; set; }
+
+        //public int MyProperty { get; set; }
+    }
+
+    public class Page
+    {
+        public int Id { get; set; }
+
+        public string Title { get; set; }
+
+        public object Layout { get; set; }
+    }
    
 }

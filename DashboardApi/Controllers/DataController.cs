@@ -19,6 +19,8 @@ using System.Web;
 using DashboardApi.Utility;
 using System.IO;
 using System.Data;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 
 namespace DashboardApi.Controllers
@@ -193,7 +195,7 @@ namespace DashboardApi.Controllers
             return employees;
         }
 
-        private void BuildTableMetatdata(WidgetModel widgetModel)
+        private void BuildTableMetatdata(string appTitle)
         {
             dashboard = new Dashboard();
 
@@ -222,7 +224,7 @@ namespace DashboardApi.Controllers
                 dashboard.AddTable(new Table() { Name = o.name });
             }
            
-            dashboard.Associations = GetAllTableAssociations(widgetModel.AppTitle);
+            dashboard.Associations = GetAllTableAssociations(appTitle);
 
             var tablesCount = dashboard.Tables.Count();
 
@@ -343,7 +345,7 @@ namespace DashboardApi.Controllers
             MemoryCache.Default.Set("dashboard", dashboard, null,null);
 
             //Save TableAssociationHash in file
-            var associationsPath = Common.GetAppPath(widgetModel.AppTitle);
+            var associationsPath = Common.GetAppPath(appTitle);
             associationsPath += @"\associationHash.assocHash";
             var compressionHelper = new CompressionHelper<Dictionary<string, DerivedAssociation>>();
             compressionHelper.CompressAndSaveLZ4(TableAssociationHash, associationsPath);
@@ -611,7 +613,7 @@ namespace DashboardApi.Controllers
         [HttpPost]
         public dynamic GetData(WidgetModel widgetModel)
         {
-            BuildTableMetatdata(widgetModel);
+            //BuildTableMetatdata(widgetModel);
 
             if (widgetModel.Type == "kpi" && (null == widgetModel.Measure || (null != widgetModel.Measure && widgetModel.Measure.Length == 0)))
             {
@@ -688,7 +690,7 @@ namespace DashboardApi.Controllers
         public dynamic GetTotalRecordsCount(WidgetModel widgetModel)
         {
             //var recordsCount = 0;
-            BuildTableMetatdata(widgetModel);
+            //BuildTableMetatdata(widgetModel);
 
             if (widgetModel.Type == "kpi" && (null == widgetModel.Measure || (null != widgetModel.Measure && widgetModel.Measure.Length == 0)))
             {
@@ -753,7 +755,7 @@ namespace DashboardApi.Controllers
         [HttpPost]
         public IEnumerable<dynamic> GetDataWorkingWithMariaDB(WidgetModel widgetModel)
         {
-            BuildTableMetatdata(widgetModel);
+            //BuildTableMetatdata(widgetModel);
 
             IEnumerable<dynamic> data = null;
             Query query = null;
@@ -892,7 +894,7 @@ namespace DashboardApi.Controllers
 
             //PageData = pageLayoutModel.Layout;
 
-            var associationsPath = Common.GetAppPath(pageLayoutModel.AppTitle);
+            var associationsPath = Common.GetAppPath("app_" + pageLayoutModel.AppId);
             associationsPath += @"\page_" + pageLayoutModel.PageId.ToString() + ".pgl";
             var compressionHelper = new CompressionHelper<object>();
             compressionHelper.CompressAndSaveJsonLZ4(pageLayoutModel.Layout, associationsPath);
@@ -910,19 +912,53 @@ namespace DashboardApi.Controllers
             //    PageData.Where(p=>p.pageId == pageId)
             //}
 
-            var associationsPath = Common.GetAppPath(appTitle);
-            associationsPath += @"\page_" + pageId.ToString() + ".pgl";
+            BuildTableMetatdata("app_" + appId);
 
-            if (File.Exists(associationsPath))
+            var pagePath = Common.GetAppPath("app_"+ appId);
+            pagePath += @"\page_" + pageId.ToString() + ".pgl";
+
+            if (File.Exists(pagePath))
             {
                 var compressionHelper = new CompressionHelper<object>();
-                var pageLayout = compressionHelper.ReadCompressJsonLZ4(associationsPath);
+                var pageLayout = compressionHelper.ReadCompressJsonLZ4(pagePath);                
                 return pageLayout;
             }
             return null;
 
             //return PageData;
         }
+
+        //[Route("api/data/getAllPagesOfApp")]
+        //[HttpGet]
+        //public List<Page> GetAllPagesOfApp(string appId)
+        //{
+        //    var pages = new List<Page>();
+        //    var appPath = Common.GetAppPath("app_" + appId);
+        //    if (Directory.Exists(appPath))
+        //    {
+        //        var pageFiles = Directory.GetFiles(appPath, "*.pgl");
+        //        foreach(var pagePath in pageFiles)
+        //        {
+        //            var page = new Page();
+        //            page.Id  = pagePath
+        //        }
+
+        //    }
+
+        //    var associationsPath = Common.GetAppPath("app_" + appId);
+        //    associationsPath += @"\page_" + pageId.ToString() + ".pgl";
+
+        //    //if (File.Exists(associationsPath))
+        //    //{
+        //    //    var compressionHelper = new CompressionHelper<object>();
+        //    //    var pageLayout = compressionHelper.ReadCompressJsonLZ4(associationsPath);
+        //    //    BuildTableMetatdata("app_" + appId);
+        //    //    return pageLayout;
+        //    //}
+        //    //return null;
+
+        //    return pages;
+        //}
 
         [Route("api/data/getTables")]
         [HttpPost]
@@ -955,6 +991,39 @@ namespace DashboardApi.Controllers
         public dynamic GetColumns(string tableName)
         {
             return GetDataFromDB("select * from sys.columns where table_id = (select id from tables where name ='" + tableName + "')");
+        }
+
+        [Route("api/data/getExistingTableAssociation")]
+        [HttpGet]
+        public dynamic GetExistingTableAssociation(string appTitle,string tableName1,string tableName2)
+        {
+            var associations = new List<Association>();
+            if (null != TableAssociations)
+            {
+                associations = TableAssociations;
+            } else
+            {
+                associations = GetAllTableAssociations(appTitle);
+            }
+            if(null  != tableName1 && null != tableName2)
+            {
+               var association = associations.Where(a => a.TableName == tableName1).FirstOrDefault();
+                if(null != association)
+                {
+                    var newAssociation = new Association();
+                    association.TableName = tableName1;
+                    association.Relations =  association.Relations.Where(r => r.TableName2 == tableName2).ToList();
+                    return association;
+                }
+            } else if (null != tableName1)
+            {
+                return associations.Where(a => a.TableName == tableName1).FirstOrDefault();
+            }
+            else if (null != tableName2)
+            {
+                return associations.Where(a => a.TableName == tableName2).FirstOrDefault();
+            }
+            return null;
         }
 
         [Route("api/data/saveTableAssociation")]
@@ -1019,11 +1088,105 @@ namespace DashboardApi.Controllers
             TableAssociations = associations;
 
             //Save Associations in file.
-            var associationsPath = Common.GetAppPath(associationModel.AppTitle);
+            var associationsPath = Common.GetAppPath("app_" + associationModel.AppId);
             associationsPath += @"\association.assoc";
             var compressionHelper = new CompressionHelper<List<Association>>();
             compressionHelper.CompressAndSaveLZ4(associations, associationsPath);
         }
+
+        [Route("api/data/createNewApp")]
+        [HttpPost]
+        public void CreateNewApp(AppModel app)
+        {
+            var appFileName = "app_" + app.Id;
+            var appPath = Common.GetAppPath(appFileName);
+            if (!Directory.Exists(appPath))
+            {
+                Directory.CreateDirectory(appPath);
+            }
+
+            //Save App header File
+            var appHeaderPath = appPath + @"\" + appFileName +".header";            
+            var compressionHelper = new CompressionHelper<AppModel>();
+            compressionHelper.CompressAndSaveLZ4(app, appHeaderPath);
+
+        }
+
+        [Route("api/data/createNewPage")]
+        [HttpPost]
+        public AppModel CreateNewPage(dynamic page)
+        {
+            var appId = page.appId.Value;
+            var pageId = page.id.Value;
+            var pageTitle = page.title.Value;
+            var appFileName = "app_" + appId;
+            var appPath = Common.GetAppPath(appFileName);
+            if (Directory.Exists(appPath))
+            {
+                AppModel app = GetAppById(Convert.ToString(appId));
+                if(null != app)
+                {
+                    var pg = new Page();
+                    pg.Id = Convert.ToInt32(pageId);
+                    pg.Title = Convert.ToString(pageTitle);
+
+                    app.Pages.Add(pg);
+                }
+                //Save App header File
+                var appHeaderPath = appPath + @"\" + appFileName + ".header";
+                var compressionHelper = new CompressionHelper<AppModel>();
+                compressionHelper.CompressAndSaveLZ4(app, appHeaderPath);
+                return app;
+            }
+            return null;
+        }
+
+
+        [Route("api/data/getAppById")]
+        [HttpGet]
+        public AppModel GetAppById(string appId)
+        {
+            var dashboardPath = Common.GetFilePath();
+            if (Directory.Exists(dashboardPath))
+            {
+                var appPath = dashboardPath + @"\" + "app_" + appId;
+                //Read App header File
+                var appHeaderPath = appPath + @"\" + "app_" + appId + ".header";
+                var compressionHelper = new CompressionHelper<AppModel>();
+                var app = compressionHelper.ReadCompressSharpLZ4(appHeaderPath);
+                //return JsonConvert.SerializeObject(app, Settings);
+                return app;
+            }
+            return null;
+        }
+
+        [Route("api/data/loadApps")]
+        [HttpGet]
+        public string LoadApps()
+        {
+            var appList = new  List<AppModel>();
+            var dashboardPath = Common.GetFilePath();
+            if (Directory.Exists(dashboardPath))
+            {
+                var directories = Directory.EnumerateDirectories(dashboardPath);
+                foreach(var dir in directories)
+                {
+                    var appName = dir.Substring(dir.LastIndexOf(@"\"));
+                    //Read App header File
+                    var appHeaderPath = dir + @"\" + appName + ".header";
+                    var compressionHelper = new CompressionHelper<AppModel>();
+                    appList.Add(compressionHelper.ReadCompressSharpLZ4(appHeaderPath));
+                }
+            }
+           
+            return JsonConvert.SerializeObject(appList, Settings);
+
+        }
+
+        private static readonly JsonSerializerSettings Settings = new JsonSerializerSettings
+        {
+            ContractResolver = new CamelCasePropertyNamesContractResolver()
+        };
 
         [Route("api/data/importTable")]
         [HttpPost]
@@ -1111,7 +1274,7 @@ namespace DashboardApi.Controllers
             return GetSqlType(column.DataType, column.MaxLength, 10, 2);
         }
 
-public static string GetSqlType(object type, int columnSize, int numericPrecision, int numericScale)
+        public static string GetSqlType(object type, int columnSize, int numericPrecision, int numericScale)
         {           
             switch (type.ToString())
             {
@@ -1200,7 +1363,11 @@ public static string GetSqlType(object type, int columnSize, int numericPrecisio
                 var associationsPath = Common.GetAppPath(appTitle);
                 associationsPath += @"\association.assoc";
                 var compressionHelper = new CompressionHelper<List<Association>>();
-                return compressionHelper.ReadCompressSharpLZ4(associationsPath);
+                if (File.Exists(associationsPath))
+                {
+                    return compressionHelper.ReadCompressSharpLZ4(associationsPath);
+                }
+                return new List<Association>();
             }
             //var associations = new List<Association>();
             //var association = new Association();
