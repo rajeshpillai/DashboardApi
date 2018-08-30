@@ -28,11 +28,11 @@ namespace DashboardApi.Controllers
     [EnableCors(origins: "*", headers: "*", methods: "*")]
     public class DataController : ApiController
     {
-        static object PageData = null;
+        //static object PageData = null;
 
         static List<Association> TableAssociations = null;
 
-        static Dashboard dashboard = null;
+        //static Dashboard dashboard = null;
 
         // GET: api/Data
         [Route("api/data/getsalary")]
@@ -195,12 +195,13 @@ namespace DashboardApi.Controllers
             return employees;
         }
 
-        private void BuildTableMetatdata(string appTitle)
+        private void BuildTableMetatdata(string appId)
         {
-            dashboard = new Dashboard();
+            var appTitle = "app_" + appId;
+            var dashboard = new Dashboard();
 
-            if (null != MemoryCache.Default.Get("dashboard",null)){
-                dashboard = MemoryCache.Default.Get("dashboard", null) as Dashboard;
+            if (null != MemoryCache.Default.Get("dashboard_" + appTitle,null)){
+                dashboard = MemoryCache.Default.Get("dashboard_" + appTitle, null) as Dashboard;
                 return;
             }
 
@@ -216,12 +217,17 @@ namespace DashboardApi.Controllers
 
             //dashboard.Tables.AddRange(MemoryCache.Default.Get("tables") as List<Table>);
 
-            var tables = GetTables();
-            var tablesObject = tables.ToObject<List<object>>();
-            dashboard.Tables = new List<Table>();
-            foreach (var o in tablesObject)
+            //Get App Header and tables for that App
+
+            var app = GetAppById(appId);
+
+            var tables = app.Tables;
+            //var tables = GetTables();
+            //var tablesObject = tables.ToObject<List<object>>();
+            //dashboard.Tables = new List<Table>();
+            foreach (var o in tables)
             {
-                dashboard.AddTable(new Table() { Name = o.name });
+                dashboard.AddTable(new Table() { Name = o.Name });
             }
            
             dashboard.Associations = GetAllTableAssociations(appTitle);
@@ -342,7 +348,7 @@ namespace DashboardApi.Controllers
 
             dashboard.TableAssociationHash = TableAssociationHash;
 
-            MemoryCache.Default.Set("dashboard", dashboard, null,null);
+            MemoryCache.Default.Set("dashboard_" + appTitle, dashboard, null,null);
 
             //Save TableAssociationHash in file
             var associationsPath = Common.GetAppPath(appTitle);
@@ -449,163 +455,163 @@ namespace DashboardApi.Controllers
         //    return evaluatedExp;
         //}
 
-        public Query GetTablesAssociationQuery(WidgetModel widgetModel)
-        {
+        //public Query GetTablesAssociationQuery(WidgetModel widgetModel)
+        //{
 
-            var connection = new MySqlConnection(
-             "Host=localhost;Port=3306;User=root;Password=root123;Database=adventureworks;SslMode=None"
-            );
-            var db = new QueryFactory(connection, new MySqlCompiler());
-            Query query = null;
+        //    var connection = new MySqlConnection(
+        //     "Host=localhost;Port=3306;User=root;Password=root123;Database=adventureworks;SslMode=None"
+        //    );
+        //    var db = new QueryFactory(connection, new MySqlCompiler());
+        //    Query query = null;
 
-            //var tables = GetTablesInvolved(widgetModel);
+        //    //var tables = GetTablesInvolved(widgetModel);
 
-            var tablesKey = GetTablesInvolved(widgetModel);
-            DerivedAssociation derivedAssociation = null;
+        //    var tablesKey = GetTablesInvolved(widgetModel);
+        //    DerivedAssociation derivedAssociation = null;
 
-            if (dashboard.TableAssociationHash.ContainsKey(tablesKey))
-            {
-                derivedAssociation = dashboard.TableAssociationHash[tablesKey];
+        //    if (dashboard.TableAssociationHash.ContainsKey(tablesKey))
+        //    {
+        //        derivedAssociation = dashboard.TableAssociationHash[tablesKey];
 
-                if (null != derivedAssociation)
-                {
-                    query = db.Query(derivedAssociation.TableName1);
-                    foreach (var rel in derivedAssociation.Relations)
-                    {
-                        foreach (var keys in rel.Keys)
-                        {
-                            query = query.Join(rel.TableName2, keys[0], keys[1], rel.Operation, rel.Type);
-                        }
+        //        if (null != derivedAssociation)
+        //        {
+        //            query = db.Query(derivedAssociation.TableName1);
+        //            foreach (var rel in derivedAssociation.Relations)
+        //            {
+        //                foreach (var keys in rel.Keys)
+        //                {
+        //                    query = query.Join(rel.TableName2, keys[0], keys[1], rel.Operation, rel.Type);
+        //                }
                         
-                    }
-                }
-            } else
-            {
-                if(tablesKey.Split(',').Length == 1)
-                {
-                    var tableId = tablesKey.Split(',')[0];
-                    var tableName = dashboard.Tables.Where(t => t.Id.ToString() == tableId).First().Name;
-                    query = db.Query(tableName);
-                }
-            }
+        //            }
+        //        }
+        //    } else
+        //    {
+        //        if(tablesKey.Split(',').Length == 1)
+        //        {
+        //            var tableId = tablesKey.Split(',')[0];
+        //            var tableName = dashboard.Tables.Where(t => t.Id.ToString() == tableId).First().Name;
+        //            query = db.Query(tableName);
+        //        }
+        //    }
 
-            //if (null != tables && tables.Count > 0)
-            //{
-            //    var allAssociations = dashboard.Associations; //GetAllTableAssociations();
+        //    //if (null != tables && tables.Count > 0)
+        //    //{
+        //    //    var allAssociations = dashboard.Associations; //GetAllTableAssociations();
 
-            //    var tablesConsidered = new List<string>();
-            //    tablesConsidered.Add(tables[0]);
-            //    query = db.Query(tables[0]);
-            //    for (var i = 0; i < tables.Count; i++)
-            //    {
-            //        var association = allAssociations.Where(a => a.TableName == tables[i]).FirstOrDefault();
-            //        if(null != association)
-            //        {
-            //            foreach (var rel in association.Relations)
-            //            {
-            //                if (tables.Contains(rel.TableName2) && !tablesConsidered.Contains(rel.TableName2))
-            //                {
-            //                    //consider it
-            //                    query = query.Join(rel.TableName2, rel.Keys[0], rel.Keys[1], rel.Operation, rel.Type);
-            //                    tablesConsidered.Add(rel.TableName2);
-            //                }
-            //            }
-            //        }
+        //    //    var tablesConsidered = new List<string>();
+        //    //    tablesConsidered.Add(tables[0]);
+        //    //    query = db.Query(tables[0]);
+        //    //    for (var i = 0; i < tables.Count; i++)
+        //    //    {
+        //    //        var association = allAssociations.Where(a => a.TableName == tables[i]).FirstOrDefault();
+        //    //        if(null != association)
+        //    //        {
+        //    //            foreach (var rel in association.Relations)
+        //    //            {
+        //    //                if (tables.Contains(rel.TableName2) && !tablesConsidered.Contains(rel.TableName2))
+        //    //                {
+        //    //                    //consider it
+        //    //                    query = query.Join(rel.TableName2, rel.Keys[0], rel.Keys[1], rel.Operation, rel.Type);
+        //    //                    tablesConsidered.Add(rel.TableName2);
+        //    //                }
+        //    //            }
+        //    //        }
 
-            //    }
-            //}
-            //else
-            //{
-            //    if (widgetModel.Type == "filter" && widgetModel.FilterList.Count == 0)
-            //    {
-            //        //Do not joing on any other table.
-            //        //Select from table of dimention only
-            //        var dimName = widgetModel.Dimension[0].Name;
-            //        var tableName = dimName.Substring(0, dimName.IndexOf("."));
-            //        query = db.Query(tableName);
-            //    }                
-            //}
+        //    //    }
+        //    //}
+        //    //else
+        //    //{
+        //    //    if (widgetModel.Type == "filter" && widgetModel.FilterList.Count == 0)
+        //    //    {
+        //    //        //Do not joing on any other table.
+        //    //        //Select from table of dimention only
+        //    //        var dimName = widgetModel.Dimension[0].Name;
+        //    //        var tableName = dimName.Substring(0, dimName.IndexOf("."));
+        //    //        query = db.Query(tableName);
+        //    //    }                
+        //    //}
 
 
-            return query;
-        }
+        //    return query;
+        //}
 
-        //private List<string> GetTablesInvolved(WidgetModel widgetModel)
-        private string GetTablesInvolved(WidgetModel widgetModel)
-        {
-            List<string> tables = new List<string>();
+        ////private List<string> GetTablesInvolved(WidgetModel widgetModel)
+        //private string GetTablesInvolved(WidgetModel widgetModel)
+        //{
+        //    List<string> tables = new List<string>();
 
-            if(null != widgetModel.Dimension && widgetModel.Dimension.Count() > 0)
-            {
-                foreach(var dim in widgetModel.Dimension)
-                {
-                    var dimName = dim.Name;
-                    var tableName = dimName.Substring(0, dimName.IndexOf("."));
-                    if (!tables.Contains(tableName))
-                    {
-                        tables.Add(tableName);
-                    }
-                }
-            }
+        //    if(null != widgetModel.Dimension && widgetModel.Dimension.Count() > 0)
+        //    {
+        //        foreach(var dim in widgetModel.Dimension)
+        //        {
+        //            var dimName = dim.Name;
+        //            var tableName = dimName.Substring(0, dimName.IndexOf("."));
+        //            if (!tables.Contains(tableName))
+        //            {
+        //                tables.Add(tableName);
+        //            }
+        //        }
+        //    }
 
-            if (null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
-            {
-                var replacementStrings = new string[5] { "sum", "count", "avg", "(", ")" };
-                foreach (var measure in widgetModel.Measure)
-                {
-                    var expression = measure.Expression;
-                    if (string.IsNullOrWhiteSpace(expression)) { continue; }
-                    foreach(var r in replacementStrings)
-                    {
-                        expression =  expression.Replace(r, "");
-                    }
-                    expression = expression.Trim();
-                    //var measure = dim.Name;
-                    var tableName = expression.Substring(0, expression.IndexOf("."));
-                    if (!tables.Contains(tableName))
-                    {
-                        tables.Add(tableName);
-                    }
-                }
-            }
+        //    if (null != widgetModel.Measure && widgetModel.Measure.Count() > 0)
+        //    {
+        //        var replacementStrings = new string[5] { "sum", "count", "avg", "(", ")" };
+        //        foreach (var measure in widgetModel.Measure)
+        //        {
+        //            var expression = measure.Expression;
+        //            if (string.IsNullOrWhiteSpace(expression)) { continue; }
+        //            foreach(var r in replacementStrings)
+        //            {
+        //                expression =  expression.Replace(r, "");
+        //            }
+        //            expression = expression.Trim();
+        //            //var measure = dim.Name;
+        //            var tableName = expression.Substring(0, expression.IndexOf("."));
+        //            if (!tables.Contains(tableName))
+        //            {
+        //                tables.Add(tableName);
+        //            }
+        //        }
+        //    }
 
-            if (null != widgetModel.FilterList && widgetModel.FilterList.Count() > 0)
-            {
-                foreach (var filter in widgetModel.FilterList)
-                {
-                    var colName = filter.ColName;
-                    var tableName = colName.Substring(0, colName.IndexOf("."));
-                    filter.TableName = tableName;
-                    if (!tables.Contains(tableName))
-                    {
-                        tables.Add(tableName);
-                    }
-                }
-            }
+        //    if (null != widgetModel.FilterList && widgetModel.FilterList.Count() > 0)
+        //    {
+        //        foreach (var filter in widgetModel.FilterList)
+        //        {
+        //            var colName = filter.ColName;
+        //            var tableName = colName.Substring(0, colName.IndexOf("."));
+        //            filter.TableName = tableName;
+        //            if (!tables.Contains(tableName))
+        //            {
+        //                tables.Add(tableName);
+        //            }
+        //        }
+        //    }
 
-            //Get Table Objects and string for hash key
-            var tableList = new List<Table>();
-            var tableKey = string.Empty;
-            //tables = tables.Select(t=>t.).OrderBy
-            foreach ( var t in tables)
-            {
-               var table =  dashboard.Tables.Where(tbl => tbl.Name == t).FirstOrDefault();
-                if (null != table)
-                {
-                    tableList.Add(table);
-                    //
-                }
-            }
-            tableList = tableList.OrderBy(t => t.Id).ToList();
-            foreach (var t in tableList)
-            {
-                tableKey += t.Id + ",";
-            }
-                tableKey = tableKey.Substring(0, tableKey.LastIndexOf(","));
+        //    //Get Table Objects and string for hash key
+        //    var tableList = new List<Table>();
+        //    var tableKey = string.Empty;
+        //    //tables = tables.Select(t=>t.).OrderBy
+        //    foreach ( var t in tables)
+        //    {
+        //       var table =  dashboard.Tables.Where(tbl => tbl.Name == t).FirstOrDefault();
+        //        if (null != table)
+        //        {
+        //            tableList.Add(table);
+        //            //
+        //        }
+        //    }
+        //    tableList = tableList.OrderBy(t => t.Id).ToList();
+        //    foreach (var t in tableList)
+        //    {
+        //        tableKey += t.Id + ",";
+        //    }
+        //        tableKey = tableKey.Substring(0, tableKey.LastIndexOf(","));
 
-            //return tables;
-            return tableKey;
-        }
+        //    //return tables;
+        //    return tableKey;
+        //}
 
 
         // GET: api/Data
@@ -614,6 +620,13 @@ namespace DashboardApi.Controllers
         public dynamic GetData(WidgetModel widgetModel)
         {
             //BuildTableMetatdata(widgetModel);
+
+            var dashboard = new Dashboard();
+
+            if (null != MemoryCache.Default.Get("dashboard_" + "app_" + widgetModel.AppId, null))
+            {
+                dashboard = MemoryCache.Default.Get("dashboard_" + "app_" + widgetModel.AppId, null) as Dashboard;
+            }
 
             if (widgetModel.Type == "kpi" && (null == widgetModel.Measure || (null != widgetModel.Measure && widgetModel.Measure.Length == 0)))
             {
@@ -691,6 +704,12 @@ namespace DashboardApi.Controllers
         {
             //var recordsCount = 0;
             //BuildTableMetatdata(widgetModel);
+            var dashboard = new Dashboard();
+
+            if (null != MemoryCache.Default.Get("dashboard_" + "app_" + widgetModel.AppId, null))
+            {
+                dashboard = MemoryCache.Default.Get("dashboard_" + "app_" + widgetModel.AppId, null) as Dashboard;               
+            }
 
             if (widgetModel.Type == "kpi" && (null == widgetModel.Measure || (null != widgetModel.Measure && widgetModel.Measure.Length == 0)))
             {
@@ -750,119 +769,119 @@ namespace DashboardApi.Controllers
         }
 
 
-        // GET: api/Data
-        [Route("api/data/getDataWorkingWithMaridDB")]
-        [HttpPost]
-        public IEnumerable<dynamic> GetDataWorkingWithMariaDB(WidgetModel widgetModel)
-        {
-            //BuildTableMetatdata(widgetModel);
+        //// GET: api/Data
+        //[Route("api/data/getDataWorkingWithMaridDB")]
+        //[HttpPost]
+        //public IEnumerable<dynamic> GetDataWorkingWithMariaDB(WidgetModel widgetModel)
+        //{
+        //    //BuildTableMetatdata(widgetModel);
 
-            IEnumerable<dynamic> data = null;
-            Query query = null;
-            var connection = new MySqlConnection(
-             "Host=localhost;Port=3306;User=root;Password=root123;Database=adventureworks;SslMode=None"
-            );
-            var db = new QueryFactory(connection, new MySqlCompiler());
+        //    IEnumerable<dynamic> data = null;
+        //    Query query = null;
+        //    var connection = new MySqlConnection(
+        //     "Host=localhost;Port=3306;User=root;Password=root123;Database=adventureworks;SslMode=None"
+        //    );
+        //    var db = new QueryFactory(connection, new MySqlCompiler());
 
-            //if (widgetModel.Type == "kpi"){
-            var measures = new System.Text.StringBuilder();
-            if (widgetModel.Type == "kpi" && (null == widgetModel.Measure || (null != widgetModel.Measure && widgetModel.Measure.Length ==0)))
-            {
-                return null;
-            }
-            if (widgetModel.Type == "filter" && (null == widgetModel.Dimension || (null != widgetModel.Dimension && widgetModel.Dimension.Length == 0)))
-            {
-                return null;
-            }
+        //    //if (widgetModel.Type == "kpi"){
+        //    var measures = new System.Text.StringBuilder();
+        //    if (widgetModel.Type == "kpi" && (null == widgetModel.Measure || (null != widgetModel.Measure && widgetModel.Measure.Length ==0)))
+        //    {
+        //        return null;
+        //    }
+        //    if (widgetModel.Type == "filter" && (null == widgetModel.Dimension || (null != widgetModel.Dimension && widgetModel.Dimension.Length == 0)))
+        //    {
+        //        return null;
+        //    }
 
-            var measuresString = string.Empty;
-            var dimString = string.Empty;
+        //    var measuresString = string.Empty;
+        //    var dimString = string.Empty;
 
-            if (null != widgetModel.Measure)
-            {
-                foreach (var measure in widgetModel.Measure)
-                {
-                    if (string.IsNullOrWhiteSpace(measure.Expression)) { continue; }
+        //    if (null != widgetModel.Measure)
+        //    {
+        //        foreach (var measure in widgetModel.Measure)
+        //        {
+        //            if (string.IsNullOrWhiteSpace(measure.Expression)) { continue; }
 
-                    // var expDisplayName = !string.IsNullOrWhiteSpace(measure.DisplayName) ? measure.DisplayName : '[' + measure.Expression + ']';
-                    if (!string.IsNullOrWhiteSpace(measure.DisplayName))
-                    {
-                        measures.Append(string.Format("{0} as {1} ", measure.Expression.Trim(), measure.DisplayName.Trim()) + ", ");
-                    }
-                    else
-                    {
-                        measures.Append(string.Format("{0} ", measure.Expression.Trim()) + ", ");
-                    }
+        //            // var expDisplayName = !string.IsNullOrWhiteSpace(measure.DisplayName) ? measure.DisplayName : '[' + measure.Expression + ']';
+        //            if (!string.IsNullOrWhiteSpace(measure.DisplayName))
+        //            {
+        //                measures.Append(string.Format("{0} as {1} ", measure.Expression.Trim(), measure.DisplayName.Trim()) + ", ");
+        //            }
+        //            else
+        //            {
+        //                measures.Append(string.Format("{0} ", measure.Expression.Trim()) + ", ");
+        //            }
 
-                }
+        //        }
 
-                measuresString = measures.ToString();
-                measuresString = measuresString.Remove(measuresString.LastIndexOf(','), 1);
-            }
+        //        measuresString = measures.ToString();
+        //        measuresString = measuresString.Remove(measuresString.LastIndexOf(','), 1);
+        //    }
             
 
-            var dims = new System.Text.StringBuilder();
+        //    var dims = new System.Text.StringBuilder();
 
-            if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0)
-            {
-                foreach (var dim in widgetModel.Dimension)
-                {
-                    // var expDisplayName = !string.IsNullOrWhiteSpace(measure.DisplayName) ? measure.DisplayName : '[' + measure.Expression + ']';
-                    if (!string.IsNullOrWhiteSpace(dim.Name))
-                    {
-                        dims.Append(dim.Name.Trim() + " as '" + dim.Name.Trim() + "',");
-                    }                    
-                }
-                dimString = dims.ToString();
-                dimString = dimString.Remove(dimString.LastIndexOf(','), 1);
-            }
+        //    if (null != widgetModel.Dimension && widgetModel.Dimension.Length > 0)
+        //    {
+        //        foreach (var dim in widgetModel.Dimension)
+        //        {
+        //            // var expDisplayName = !string.IsNullOrWhiteSpace(measure.DisplayName) ? measure.DisplayName : '[' + measure.Expression + ']';
+        //            if (!string.IsNullOrWhiteSpace(dim.Name))
+        //            {
+        //                dims.Append(dim.Name.Trim() + " as '" + dim.Name.Trim() + "',");
+        //            }                    
+        //        }
+        //        dimString = dims.ToString();
+        //        dimString = dimString.Remove(dimString.LastIndexOf(','), 1);
+        //    }
 
-            query = GetTablesAssociationQuery(widgetModel);
+        //    query = GetTablesAssociationQuery(widgetModel);
 
-            //Todo: widgetModel.SqlTableName
-            if (widgetModel.Type == "filter")
-                {
-                    query = query.Select(dimString).Distinct();
-                    //data = db.Query("employee").Select(dimString).Distinct().Get();
+        //    //Todo: widgetModel.SqlTableName
+        //    if (widgetModel.Type == "filter")
+        //        {
+        //            query = query.Select(dimString).Distinct();
+        //            //data = db.Query("employee").Select(dimString).Distinct().Get();
                    
-                } else //if (widgetModel.Type == "kpi")
-                {
-                    if (!string.IsNullOrWhiteSpace(dimString))
-                    {
-                        query = query.SelectRaw(dimString);
-                    }
-                    if (!string.IsNullOrWhiteSpace(measuresString))
-                    {
-                        query = query.SelectRaw(measuresString);
-                    }
+        //        } else //if (widgetModel.Type == "kpi")
+        //        {
+        //            if (!string.IsNullOrWhiteSpace(dimString))
+        //            {
+        //                query = query.SelectRaw(dimString);
+        //            }
+        //            if (!string.IsNullOrWhiteSpace(measuresString))
+        //            {
+        //                query = query.SelectRaw(measuresString);
+        //            }
 
-                    if(!string.IsNullOrWhiteSpace(dimString)  && !string.IsNullOrWhiteSpace(measuresString))
-                    {
+        //            if(!string.IsNullOrWhiteSpace(dimString)  && !string.IsNullOrWhiteSpace(measuresString))
+        //            {
                     
-                        query = query.GroupBy( widgetModel.Dimension.Select(d => d.Name).ToArray<string>());
-                    }
+        //                query = query.GroupBy( widgetModel.Dimension.Select(d => d.Name).ToArray<string>());
+        //            }
                 
-                        //data = db.Query("employee").SelectRaw(measuresString).Get();
-                }
-            var constraints = new Dictionary<string, object>();
+        //                //data = db.Query("employee").SelectRaw(measuresString).Get();
+        //        }
+        //    var constraints = new Dictionary<string, object>();
             
 
-            if (null != widgetModel.FilterList && widgetModel.FilterList.Count() > 0)
-            {
-                foreach(var filter in widgetModel.FilterList)
-                {
-                   // constraints.Add(filter.ColName, filter.Values.to);
-                    query = query.WhereIn(filter.ColName, filter.Values);
-                }
+        //    if (null != widgetModel.FilterList && widgetModel.FilterList.Count() > 0)
+        //    {
+        //        foreach(var filter in widgetModel.FilterList)
+        //        {
+        //           // constraints.Add(filter.ColName, filter.Values.to);
+        //            query = query.WhereIn(filter.ColName, filter.Values);
+        //        }
                 
-            }
+        //    }
 
-            data = query.Get();
+        //    data = query.Get();
             
-            //query.comp
+        //    //query.comp
 
-            return data;
-        }
+        //    return data;
+        //}
 
 
 
@@ -912,7 +931,8 @@ namespace DashboardApi.Controllers
             //    PageData.Where(p=>p.pageId == pageId)
             //}
 
-            BuildTableMetatdata("app_" + appId);
+            //BuildTableMetatdata("app_" + appId);
+            BuildTableMetatdata(appId);
 
             var pagePath = Common.GetAppPath("app_"+ appId);
             pagePath += @"\page_" + pageId.ToString() + ".pgl";
@@ -964,7 +984,7 @@ namespace DashboardApi.Controllers
         [HttpPost]
         public dynamic GetTables()
         {
-            var tables = GetDataFromDB("select tables.name from tables where tables.system=false");
+            var tables = GetDataFromDB("select tables.id, tables.name from tables where tables.system=false");
             //if (null != MemoryCache.Default.Get("dashboard", null))
             //{
             //    dashboard = MemoryCache.Default.Get("dashboard", null) as Dashboard;               
@@ -1029,10 +1049,24 @@ namespace DashboardApi.Controllers
         [Route("api/data/saveTableAssociation")]
         [HttpPost]
         public void SaveTableAssociation(AssociationModel associationModel)
-        {
-            MemoryCache.Default.Remove("dashboard", null);
+        {           
+            var dashboard = new Dashboard();
 
-            var associations = TableAssociations;
+            if (null != MemoryCache.Default.Get("dashboard_" + "app_" + associationModel.AppId, null))
+            {
+                dashboard = MemoryCache.Default.Get("dashboard_" + "app_" + associationModel.AppId, null) as Dashboard;
+            } else
+            {
+                //Build dashboard
+                BuildTableMetatdata(associationModel.AppId.ToString());
+                if (null != MemoryCache.Default.Get("dashboard_" + "app_" + associationModel.AppId, null))
+                {
+                    dashboard = MemoryCache.Default.Get("dashboard_" + "app_" + associationModel.AppId, null) as Dashboard;
+                }
+            }
+
+            
+            var associations = dashboard.Associations;
             if(null == associations)
             {
                 associations = new List<Association>();
@@ -1085,14 +1119,103 @@ namespace DashboardApi.Controllers
 
                 //associations.Add(newAssociation);
             }
-            TableAssociations = associations;
+            //TableAssociations = associations;
 
             //Save Associations in file.
             var associationsPath = Common.GetAppPath("app_" + associationModel.AppId);
             associationsPath += @"\association.assoc";
             var compressionHelper = new CompressionHelper<List<Association>>();
             compressionHelper.CompressAndSaveLZ4(associations, associationsPath);
+
+            MemoryCache.Default.Remove("dashboard_" + "app_" + associationModel.AppId, null);
         }
+
+        [Route("api/data/saveApp")]
+        [HttpPost]
+        public void SaveApp(AppModel app)//, AssociationModel newAssociationModel)
+        {
+           // MemoryCache.Default.Remove("dashboard", null);
+
+            MemoryCache.Default.Remove("dashboard_" + "app_" + app.Id, null);
+
+            //var associations = app.Associations; //TableAssociations;
+            //if (null == associations)
+            //{
+            //    associations = new List<Association>();
+            //}
+            ////var 
+            //var association = newAssociationModel.Association;
+            //var existingAssociation = associations.Where(a => a.TableName == association.TableName).FirstOrDefault();
+            //if (null != existingAssociation)
+            //{
+            //    var existRel = existingAssociation.Relations.Where(r => r.TableName2 == association.Relations[0].TableName2).FirstOrDefault();
+            //    if (null != existRel)
+            //    {
+            //        existRel.Keys = association.Relations[0].Keys;
+            //    }
+            //    else
+            //    {
+            //        existingAssociation.Relations.Add(association.Relations[0]);
+            //    }
+            //}
+            //else
+            //{
+            //    associations.Add(association);
+            //}
+
+
+
+            //if (null != association.Relations && association.Relations.Count() > 0)
+            //{
+            //    var newAssociation = new Association();
+            //    newAssociation.TableName = association.Relations[0].TableName2;
+            //    var rel = new Relation();
+            //    rel.TableName2 = association.TableName;
+            //    rel.Keys = association.Relations[0].Keys;
+            //    newAssociation.Relations.Add(rel); //clone it 
+            //    existingAssociation = associations.Where(a => a.TableName == newAssociation.TableName).FirstOrDefault();
+            //    if (null != existingAssociation)
+            //    {
+            //        var existRel = existingAssociation.Relations.Where(r => r.TableName2 == newAssociation.Relations[0].TableName2).FirstOrDefault();
+            //        if (null != existRel)
+            //        {
+            //            existRel.Keys = newAssociation.Relations[0].Keys;
+            //        }
+            //        else
+            //        {
+            //            existingAssociation.Relations.Add(newAssociation.Relations[0]);
+            //        }
+            //    }
+            //    else
+            //    {
+            //        associations.Add(newAssociation);
+            //    }
+
+            //    //associations.Add(newAssociation);
+            //}
+            ////TableAssociations = associations;
+
+            //Get appHeader
+            var appHeader = new AppHeader();
+            appHeader.Id = app.Id;
+            appHeader.Title = app.Title;
+            appHeader.Tables = app.Tables;
+            appHeader.Pages = app.Pages;
+
+            //Save app Header in file.
+            var appTitle = "app_" + app.Id;
+            var apPath = Common.GetAppPath(appTitle);
+            apPath += @"\"  + appTitle + ".header";
+            var compressionHelper = new CompressionHelper<AppHeader>();
+            compressionHelper.CompressAndSaveLZ4(appHeader, apPath);
+
+            ////Save Associations in file.
+            //var associationsPath = Common.GetAppPath(appTitle);
+            //associationsPath += @"\association.assoc";
+            //var assocCompressionHelper = new CompressionHelper<List<Association>>();
+            //assocCompressionHelper.CompressAndSaveLZ4(associations, associationsPath);
+        }
+
 
         [Route("api/data/createNewApp")]
         [HttpPost]
@@ -1354,11 +1477,11 @@ namespace DashboardApi.Controllers
 
         private static List<Association> GetAllTableAssociations(string appTitle)
         {            
-            if(null != TableAssociations)
-            {
-                return TableAssociations;
-            } else
-            {
+            //if(null != TableAssociations)
+            //{
+            //    return TableAssociations;
+            //} else
+            //{
                 //Read from File
                 var associationsPath = Common.GetAppPath(appTitle);
                 associationsPath += @"\association.assoc";
@@ -1368,7 +1491,7 @@ namespace DashboardApi.Controllers
                     return compressionHelper.ReadCompressSharpLZ4(associationsPath);
                 }
                 return new List<Association>();
-            }
+            //}
             //var associations = new List<Association>();
             //var association = new Association();
             

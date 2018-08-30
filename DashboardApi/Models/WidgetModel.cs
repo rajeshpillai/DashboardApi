@@ -249,19 +249,30 @@ namespace DashboardApi.Models
         public string AppTitle { get; set; }
     }
 
-    public class AppModel
+    public class AppModel: AppHeader
     {
         public AppModel()
         {
-            this.Pages = new List<Page>();
+            this.Associations = new List<Association>();
+        }
+        public List<Association> Associations { get; set; }
+    }
+
+
+    public class AppHeader
+    {
+        public AppHeader()
+        {
+            this.Pages = new List<Page>();           
+            this.Tables = new List<Table>();
         }
         public int Id { get; set; }
 
         public string Title { get; set; }
 
-        public List<Page> Pages { get; set; }
+        public List<Page> Pages { get; set; }        
 
-        //public int MyProperty { get; set; }
+        public List<Table> Tables { get; set; }
     }
 
     public class Page

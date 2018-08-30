@@ -469,6 +469,10 @@ namespace DashboardApi
 
         private string GetTablesInvolved(WidgetModel widgetModel)
         {
+            if(dashboard.Tables.Count() == 0)
+            {
+                throw new System.Exception("No Tabels configured for this App");
+            }
             List<string> tables = new List<string>();
 
             if (null != widgetModel.Dimension && widgetModel.Dimension.Count() > 0)
