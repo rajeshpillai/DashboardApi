@@ -1315,7 +1315,7 @@ namespace DashboardApi.Controllers
 
         [Route("api/data/createNewPage")]
         [HttpPost]
-        public AppModel CreateNewPage(dynamic page)
+        public string CreateNewPage(dynamic page)
         {
             var appId = page.appId.Value;
             var pageId = page.id.Value;
@@ -1337,7 +1337,9 @@ namespace DashboardApi.Controllers
                 var appHeaderPath = appPath + @"\" + appFileName + ".header";
                 var compressionHelper = new CompressionHelper<AppModel>();
                 compressionHelper.CompressAndSaveLZ4(app, appHeaderPath);
-                return app;
+
+                return JsonConvert.SerializeObject(app, Settings);
+                //return app;
             }
             return null;
         }
