@@ -25,6 +25,8 @@ using Newtonsoft.Json.Serialization;
 
 namespace DashboardApi.Controllers
 {
+    
+
     [EnableCors(origins: "*", headers: "*", methods: "*")]
     public class DataController : ApiController
     {
@@ -680,13 +682,16 @@ namespace DashboardApi.Controllers
 
                 var responseString = System.Text.Encoding.Default.GetString(response);
 
-                return Newtonsoft.Json.Linq.JArray.Parse(responseString);
-                //var t  =Json<string>(responseString);
-                // t.Content
+                System.Web.Script.Serialization.JavaScriptSerializer serializer = new System.Web.Script.Serialization.JavaScriptSerializer();
+                Response resp = serializer.Deserialize<Response>(responseString);
+
+                return resp;
+                //return Newtonsoft.Json.Linq.JArray.Parse(responseString);
+
             }
         }
 
-        private void ExecuteQueryFromDB(string query)
+        private dynamic ExecuteQueryFromDB(string query)
         {
             using (var client = new WebClient())
             {
@@ -694,6 +699,16 @@ namespace DashboardApi.Controllers
                 values["equery"] = query;
 
                 var response = client.UploadValues("http://localhost:4000/getdata", "POST", values);
+
+                var responseString = System.Text.Encoding.Default.GetString(response);
+
+                System.Web.Script.Serialization.JavaScriptSerializer serializer = new System.Web.Script.Serialization.JavaScriptSerializer();
+                Response resp = serializer.Deserialize<Response>(responseString);
+
+                //return JsonConvert.SerializeObject(resp, Settings);
+
+                return resp;
+                //return item; // Newtonsoft.Json.Linq.JObject.Parse(responseString);
             }
         }
 
@@ -946,6 +961,69 @@ namespace DashboardApi.Controllers
             return null;
 
             //return PageData;
+        }
+
+
+        [Route("api/data/getPageDataWithMetaData")]
+        [HttpPost]
+        public object GetPageDataWithMetaData(dynamic criteria)
+        {
+            var appId = criteria.appId.Value;
+            var pageId = criteria.pageId.Value;
+            var appTitle = criteria.appTitle.Value;
+            //if (null != PageData)
+            //{
+            //    PageData.Where(p=>p.pageId == pageId)
+            //}
+
+            //BuildTableMetatdata("app_" + appId);
+            BuildTableMetatdata(appId);
+
+            var pagePath = Common.GetAppPath("app_" + appId);
+            pagePath += @"\page_" + pageId.ToString() + ".pgl";
+
+            if (File.Exists(pagePath))
+            {
+                var compressionHelper = new CompressionHelper<object>();
+                var pageLayout = compressionHelper.ReadCompressJsonLZ4(pagePath);
+
+                AppModel app = GetAppById(appId);
+                var page = app.Pages.Where(p => p.Id.ToString() == pageId).FirstOrDefault();
+                if (null != page)
+                {
+                    pageLayout.page = page;
+                }
+                return pageLayout;
+            }
+            return null;
+
+            //return PageData;
+        }
+
+
+        [Route("api/data/getPageMetaData")]
+        [HttpPost]
+        public Page GetPageMetaData(dynamic criteria)
+        {
+            var appId = criteria.appId.Value;
+            var pageId = criteria.pageId.Value;
+            var appTitle = criteria.appTitle.Value;
+            //if (null != PageData)
+            //{
+            //    PageData.Where(p=>p.pageId == pageId)
+            //}
+
+            //BuildTableMetatdata("app_" + appId);
+            BuildTableMetatdata(appId);
+
+            var pagePath = Common.GetAppPath("app_" + appId);
+
+            AppModel app = GetAppById(appId);
+            var page = app.Pages.Where(p => p.Id.ToString() == pageId).FirstOrDefault();
+
+            return page;
+
+            
         }
 
         //[Route("api/data/getAllPagesOfApp")]
@@ -1264,7 +1342,6 @@ namespace DashboardApi.Controllers
             return null;
         }
 
-
         [Route("api/data/getAppById")]
         [HttpGet]
         public AppModel GetAppById(string appId)
@@ -1278,7 +1355,27 @@ namespace DashboardApi.Controllers
                 var compressionHelper = new CompressionHelper<AppModel>();
                 var app = compressionHelper.ReadCompressSharpLZ4(appHeaderPath);
                 //return JsonConvert.SerializeObject(app, Settings);
-                return app;
+                return app;                
+            }
+            return null;
+        }
+
+        [Route("api/data/getAppByIdAsString")]
+        [HttpGet]
+        public string GetAppByIdAsString(string appId)
+        {
+            var dashboardPath = Common.GetFilePath();
+            if (Directory.Exists(dashboardPath))
+            {
+                var appPath = dashboardPath + @"\" + "app_" + appId;
+                //Read App header File
+                var appHeaderPath = appPath + @"\" + "app_" + appId + ".header";
+                var compressionHelper = new CompressionHelper<AppModel>();
+                var app = compressionHelper.ReadCompressSharpLZ4(appHeaderPath);
+                //return JsonConvert.SerializeObject(app, Settings);
+                //return app;
+
+                return JsonConvert.SerializeObject(app, Settings);
             }
             return null;
         }
@@ -1311,14 +1408,108 @@ namespace DashboardApi.Controllers
             ContractResolver = new CamelCasePropertyNamesContractResolver()
         };
 
-        [Route("api/data/importTable")]
+
+        [Route("api/data/getColumnsDatatype")]
         [HttpPost]
-        public void ImportTable() //System.Web.HttpPostedFileBase file
+        public List<ColumnDetail> GetColumnsDataType() //System.Web.HttpPostedFileBase file
         {
-            
+            List<ColumnDetail> columnDetailList = new List<ColumnDetail>();
             var file = HttpContext.Current.Request.Files.Count > 0 ? HttpContext.Current.Request.Files[0] : null;
             if (null != file)
             {
+                char delimiter = Convert.ToChar(HttpContext.Current.Request.Params["delimiter"]);
+                var tableName = HttpContext.Current.Request.Params["tablename"];
+                if (string.IsNullOrWhiteSpace(tableName))
+                {
+                    tableName = file.FileName.Replace(" ", "_").Replace(".", "_");
+                }                
+                var path = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/Upload/"),
+                                       System.IO.Path.GetFileName(file.FileName));
+                file.SaveAs(path);
+
+                var directory = System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/Upload/");
+                DataTable dt;
+
+                switch (delimiter)
+                {
+                    case ',':
+                        dt = ReadCommaSeparatedFile(path);
+                        break;
+                    default:
+                        dt = ReadCustomDelimiterFile(path, delimiter);
+                        break;
+                }
+                dt.TableName = tableName;
+                            
+                foreach (DataColumn col in dt.Columns)
+                {
+                    var colDtl = new ColumnDetail();
+                    colDtl.Name = col.ColumnName;
+                    colDtl.CType = SQLGetType(col);
+                    columnDetailList.Add(colDtl);
+                }
+            }
+            return columnDetailList;
+        }
+
+        [Route("api/data/addData")]
+        [HttpPost]
+        public Response AddData(ImportedFileModel importedFileModel)
+        {
+            char delimiter = Convert.ToChar(importedFileModel.Delemiter);
+            var tableName = importedFileModel.TableName;
+            if (string.IsNullOrWhiteSpace(tableName))
+            {
+                tableName = importedFileModel.FileName.Replace(" ", "_").Replace(".", "_");
+            }
+
+            var path = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/Upload/"), importedFileModel.FileName);
+            var directory = System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/Upload/");
+            DataTable dt;
+
+            switch (delimiter)
+            {
+                case ',':
+                    dt = ReadCommaSeparatedFile(path);
+                    break;
+                default:
+                    dt = ReadCustomDelimiterFile(path, delimiter);
+                    break;
+            }
+          
+            var query = CreateTableFromColumns(importedFileModel.Columns, tableName);
+
+            //Create table
+            Response result =  ExecuteQueryFromDB(query);
+
+            if(result.Status.ToLower() == "failed")
+            {
+                return result;
+            }
+
+            var importDataQuery = "COPY OFFSET 2 INTO \"" + tableName + "\" FROM '" + path + "' USING DELIMITERS '" + delimiter + "';";
+            //var importDataQuery = "COPY OFFSET 2 INTO " + tableName + " FROM '" + path + "' USING DELIMITERS '\t';";
+            importDataQuery = importDataQuery.Replace("\\", "/");
+            //Import Data
+            Response importResult = ExecuteQueryFromDB(importDataQuery);
+
+            return importResult;
+
+        }
+
+        [Route("api/data/importTable")]
+        [HttpPost]
+        public void ImportTable() //System.Web.HttpPostedFileBase file
+        {           
+            var file = HttpContext.Current.Request.Files.Count > 0 ? HttpContext.Current.Request.Files[0] : null;
+            if (null != file)
+            {
+                char delimiter = Convert.ToChar(HttpContext.Current.Request.Params["delimiter"]);
+                var tableName = HttpContext.Current.Request.Params["tablename"];
+                if (string.IsNullOrWhiteSpace(tableName))
+                {
+                    tableName = file.FileName.Replace(" ", "_").Replace(".", "_");
+                }
                 //System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/ImportElements/");
                 var path = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/Upload/"),
                                        System.IO.Path.GetFileName(file.FileName));
@@ -1329,34 +1520,47 @@ namespace DashboardApi.Controllers
                 file.SaveAs(path);
 
                 var directory = System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/Upload/");
+                DataTable dt;
 
-                System.Data.DataSet ds = new System.Data.DataSet();
-                string strConnString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=\"" + directory + "\";Extended Properties = 'text;HDR=Yes;FMT=Delimited(,)'; ";
-                //string strConnString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=\"" + directory + "\";Extended Properties = 'text;HDR=Yes;FMT=TabDelimited'; ";
-                //"Driver={Microsoft Text Driver (*.txt; *.csv)}; Dbq=" + path + "; Extensions=asc,csv,tab,txt;Persist Security Info=False";
-                string sql_select;
+                switch (delimiter)
+                {
+                    case ',':
+                        dt = ReadCommaSeparatedFile(path);
+                        break;                    
+                    default:
+                        dt = ReadCustomDelimiterFile(path, delimiter);
+                        break;
+                }
 
-                System.Data.OleDb.OleDbConnection conn;
-                conn = new System.Data.OleDb.OleDbConnection(strConnString.Trim());
-                conn.Open();
+                ////DataTable dt = ReadCustomDelimiterFile(path);
 
-                //Creates the select command text
+                //System.Data.DataSet ds = new System.Data.DataSet();
+                //string strConnString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=\"" + directory + "\";Extended Properties = 'text;HDR=Yes;FMT=Delimited(,)'; ";
+                ////string strConnString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=\"" + directory + "\";Extended Properties = 'text;HDR=Yes;FMT=TabDelimited'; ";
+                ////"Driver={Microsoft Text Driver (*.txt; *.csv)}; Dbq=" + path + "; Extensions=asc,csv,tab,txt;Persist Security Info=False";
+                //string sql_select;
 
-                sql_select = "select top 200 * from [" + file.FileName + "]";
+                //System.Data.OleDb.OleDbConnection conn;
+                //conn = new System.Data.OleDb.OleDbConnection(strConnString.Trim());
+                //conn.Open();
 
-                //Creates the data adapter
-                System.Data.OleDb.OleDbDataAdapter obj_oledb_da = new System.Data.OleDb.OleDbDataAdapter(sql_select, conn);
+                ////Creates the select command text
 
-                //Fills dataset with the records from CSV file
-                obj_oledb_da.Fill(ds, "csv");
+                //sql_select = "select top 200 * from [" + file.FileName + "]";
 
-                var tableName = ds.Tables[0].TableName;
-                var query = CreateTableFromDataTable(tableName, ds.Tables[0]);
+                ////Creates the data adapter
+                //System.Data.OleDb.OleDbDataAdapter obj_oledb_da = new System.Data.OleDb.OleDbDataAdapter(sql_select, conn);
+
+                ////Fills dataset with the records from CSV file
+                //obj_oledb_da.Fill(ds, file.FileName.Replace(string.Empty, "_").Replace(".", "_"));
+                dt.TableName = tableName;
+                //var tableName = dt.TableName;
+                var query = CreateTableFromDataTable(tableName, dt);
 
                 //Create table
                 ExecuteQueryFromDB(query);
 
-                var importDataQuery = "COPY OFFSET 2 INTO " + tableName + " FROM '" + path + "' USING DELIMITERS ',';";
+                var importDataQuery = "COPY OFFSET 2 INTO " + tableName + " FROM '" + path + "' USING DELIMITERS '" + delimiter + "';";
                 //var importDataQuery = "COPY OFFSET 2 INTO " + tableName + " FROM '" + path + "' USING DELIMITERS '\t';";
                 importDataQuery = importDataQuery.Replace("\\","/");
                 //Import Data
@@ -1366,6 +1570,133 @@ namespace DashboardApi.Controllers
             }
         }
 
+        private DataTable ReadCommaSeparatedFile(string filePath)
+        {
+            DataTable dt = new DataTable();
+            var directory = System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/Upload/");
+            var fileName = filePath.Substring(filePath.LastIndexOf(@"\")+1);
+            System.Data.DataSet ds = new System.Data.DataSet();
+            string strConnString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=\"" + directory + "\";Extended Properties = 'text;HDR=Yes;FMT=Delimited(,)'; ";
+            //string strConnString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=\"" + directory + "\";Extended Properties = 'text;HDR=Yes;FMT=TabDelimited'; ";
+            //"Driver={Microsoft Text Driver (*.txt; *.csv)}; Dbq=" + path + "; Extensions=asc,csv,tab,txt;Persist Security Info=False";
+            string sql_select;
+
+            System.Data.OleDb.OleDbConnection conn;
+            conn = new System.Data.OleDb.OleDbConnection(strConnString.Trim());
+            conn.Open();
+
+            //Creates the select command text
+
+            sql_select = "select top 200 * from [" + fileName + "]";
+
+            //Creates the data adapter
+            System.Data.OleDb.OleDbDataAdapter obj_oledb_da = new System.Data.OleDb.OleDbDataAdapter(sql_select, conn);
+
+            //Fills dataset with the records from CSV file
+            obj_oledb_da.Fill(ds, "csv");
+
+            return ds.Tables[0];
+        }
+
+        private DataTable ReadCustomDelimiterFile(string filePath, char delimiter)
+        {
+            DataTable dt = new DataTable();
+            //DataTable dtCloned = null;
+            string[] lines = System.IO.File.ReadAllLines(filePath);
+            var linesCountToDetermineDataType = lines.Length;
+            if(linesCountToDetermineDataType > 200)
+            {
+                linesCountToDetermineDataType = 200;
+            }
+            for (int i = 0; i < linesCountToDetermineDataType; i++)
+            {
+                DataRow toInsert = dt.NewRow();
+                if (i==0)
+                {
+                    string[] columnarray = lines[i].Trim().Split(delimiter);
+                    for (int j = 0; j < columnarray.Length; j++)
+                    {
+                        dt.Columns.Add(columnarray[j]);
+                    }
+                }
+                else if (i < lines.Length && i > 0)
+                {
+                    var h = i;
+                    string[] rowarray = lines[i].Trim().Split(delimiter);
+                    for (int k = 0; k < rowarray.Length; k++)
+                    {
+                        //System.Text.RegularExpressions.MatchCollection mc = System.Text.RegularExpressions.Regex.Matches(rowarray[k], @"\p{C}");
+
+                        toInsert[k] = rowarray[k];
+                    }
+                    dt.Rows.InsertAt(toInsert, h);
+                    h++;
+                }
+                else if (lines[i].Trim() == "END - OF - DATA")
+                {
+                    break;
+                }
+                else
+                {
+                    continue;
+                }
+            }
+
+
+            DataTable dtCloned = dt.Clone();
+            //Determine datatType of each column
+            foreach (DataColumn  col in dt.Columns)
+            {
+                List<dataType> dataTypes = new List<dataType>();
+                foreach(DataRow row in dt.Rows)
+                {
+                    var data = row[col.ColumnName];
+                    if(null != data)
+                    {
+                        var type = Common.ParseString(data.ToString());
+                        if (!dataTypes.Contains(type))
+                        {
+                            dataTypes.Add(type);
+                        }
+                    }
+                    if (dataTypes.Count() > 1)
+                    {
+                        break;
+                    }
+                }
+
+                if(dataTypes.Count() == 1)
+                {                    
+                    var clonedCol = dtCloned.Columns[col.ColumnName];
+                    switch (dataTypes[0])
+                    {
+                        case dataType.System_Boolean:
+                            clonedCol.DataType = typeof(bool);
+                            break;
+                        case dataType.System_DateTime:
+                            clonedCol.DataType = typeof(DateTime);
+                            break;
+                        case dataType.System_Double:
+                            clonedCol.DataType = typeof(Double);
+                            break;
+                        case dataType.System_Int32:
+                            clonedCol.DataType = typeof(Int32);
+                            break;
+                        case dataType.System_Int64:
+                            clonedCol.DataType = typeof(Int64);
+                            break;
+                        default:
+                            clonedCol.DataType = typeof(String);
+                            break;
+                    }                    
+                }
+            }
+
+            return dtCloned;
+        }
+
+
+
         public static string CreateTableFromDataTable(string tableName, DataTable table)
         {
             string sql = "CREATE TABLE \"" + tableName + "\" ("; //\n";
@@ -1374,6 +1705,33 @@ namespace DashboardApi.Controllers
             {
                 //sql += "[" + column.ColumnName + "] " + SQLGetType(column) + ",\n";
                 sql += "\"" + column.ColumnName.ToLower() + "\" " + SQLGetType(column) + " NULL ,";
+            }
+            sql = sql.TrimEnd(new char[] { ',', '\n' });// + "\n";
+            //sql = sql.TrimEnd(new char[] { ',', '\n' }) + "\n";
+            // primary keys
+            //if (table.PrimaryKey.Length > 0)
+            //{
+            //    sql += "CONSTRAINT [PK_" + tableName + "] PRIMARY KEY CLUSTERED (";
+            //    foreach (DataColumn column in table.PrimaryKey)
+            //    {
+            //        sql += "[" + column.ColumnName + "],";
+            //    }
+            //    sql = sql.TrimEnd(new char[] { ',' }) + "))\n";
+            //}
+            //else
+            sql += ")";
+            return sql;
+        }
+
+
+        public static string CreateTableFromColumns(List<ColumnDetail> columns, string tableName)
+        {
+            string sql = "CREATE TABLE \"" + tableName + "\" ("; //\n";
+            // columns
+            foreach (var column in columns)
+            {
+                //sql += "[" + column.ColumnName + "] " + SQLGetType(column) + ",\n";
+                sql += "\"" + column.Name.ToLower() + "\" " + column.CType + " NULL ,";
             }
             sql = sql.TrimEnd(new char[] { ',', '\n' });// + "\n";
             //sql = sql.TrimEnd(new char[] { ',', '\n' }) + "\n";
@@ -1430,7 +1788,7 @@ namespace DashboardApi.Controllers
 
 
                 case "System.Double":
-                    return "FLOAT";
+                    return "DOUBLE";
 
 
 
