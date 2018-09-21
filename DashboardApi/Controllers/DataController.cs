@@ -21,6 +21,7 @@ using System.IO;
 using System.Data;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
+using System.Configuration;
 
 
 namespace DashboardApi.Controllers
@@ -678,7 +679,7 @@ namespace DashboardApi.Controllers
                 var values = new System.Collections.Specialized.NameValueCollection();
                 values["equery"] = query;
 
-                var response = client.UploadValues("http://localhost:4000/getdata", "POST", values);
+                var response = client.UploadValues(ConfigurationManager.AppSettings.Get("nodemonetdbappurl") +  "getdata", "POST", values);
 
                 var responseString = System.Text.Encoding.Default.GetString(response);
 
@@ -698,7 +699,7 @@ namespace DashboardApi.Controllers
                 var values = new System.Collections.Specialized.NameValueCollection();
                 values["equery"] = query;
 
-                var response = client.UploadValues("http://localhost:4000/getdata", "POST", values);
+                var response = client.UploadValues(ConfigurationManager.AppSettings.Get("nodemonetdbappurl") + "getdata", "POST", values);
 
                 var responseString = System.Text.Encoding.Default.GetString(response);
 
@@ -1362,6 +1363,47 @@ namespace DashboardApi.Controllers
             return null;
         }
 
+        [Route("api/data/deleteApp")]
+        [HttpPost]
+        public string DeleteApp(string appId)
+        {
+            var dashboardPath = Common.GetFilePath();
+            if (Directory.Exists(dashboardPath))
+            {
+                var appPath = dashboardPath + @"\" + "app_" + appId;
+                if (Directory.Exists(appPath))
+                {
+                    Directory.Delete(appPath,true);
+                }
+            }
+
+            return LoadApps();
+        }
+
+        [Route("api/data/deletePage")]
+        [HttpPost]
+        public string DeletePage(string appId, string pageId)
+        {
+            var dashboardPath = Common.GetFilePath();
+            if (Directory.Exists(dashboardPath))
+            {
+                var appPath = dashboardPath + @"\" + "app_" + appId;
+                var pagePath = dashboardPath + @"\" + "app_" + appId + @"\" + "page_" + pageId + ".pgl";
+
+                if (Directory.Exists(appPath) && File.Exists(pagePath))
+                {
+                    File.Delete(pagePath);                   
+                }
+                 //Get App header and updte it by removing this page data.
+                    var app = GetAppById(appId);
+                    app.Pages = app.Pages.Where(p => p.Id.ToString() != pageId).ToList();
+                    //Save app header back on file.
+                    SaveApp(app);
+            }
+
+            return LoadApps();
+        }
+
         [Route("api/data/getAppByIdAsString")]
         [HttpGet]
         public string GetAppByIdAsString(string appId)
@@ -1386,12 +1428,19 @@ namespace DashboardApi.Controllers
         [HttpGet]
         public string LoadApps()
         {
-            var appList = new  List<AppModel>();
+            var appList = GetApps();
+            return JsonConvert.SerializeObject(appList, Settings);
+
+        }
+
+        private List<AppModel> GetApps()
+        {
+            var appList = new List<AppModel>();
             var dashboardPath = Common.GetFilePath();
             if (Directory.Exists(dashboardPath))
             {
                 var directories = Directory.EnumerateDirectories(dashboardPath);
-                foreach(var dir in directories)
+                foreach (var dir in directories)
                 {
                     var appName = dir.Substring(dir.LastIndexOf(@"\"));
                     //Read App header File
@@ -1400,9 +1449,7 @@ namespace DashboardApi.Controllers
                     appList.Add(compressionHelper.ReadCompressSharpLZ4(appHeaderPath));
                 }
             }
-           
-            return JsonConvert.SerializeObject(appList, Settings);
-
+            return appList;
         }
 
         private static readonly JsonSerializerSettings Settings = new JsonSerializerSettings
