@@ -1536,7 +1536,7 @@ namespace DashboardApi.Controllers
                 return result;
             }
 
-            var importDataQuery = "COPY OFFSET 2 INTO \"" + tableName + "\" FROM '" + path + "' USING DELIMITERS '" + delimiter + "';";
+            var importDataQuery = "COPY OFFSET 2 INTO \"" + tableName + "\" FROM '" + path + "' USING DELIMITERS '" + delimiter + "','\n','\"' NULL AS '';";
             //var importDataQuery = "COPY OFFSET 2 INTO " + tableName + " FROM '" + path + "' USING DELIMITERS '\t';";
             importDataQuery = importDataQuery.Replace("\\", "/");
             //Import Data
@@ -1809,16 +1809,22 @@ namespace DashboardApi.Controllers
             switch (type.ToString())
             {
                 case "System.Byte[]":
+                case "varchar":
+                case "mediumtext":
+                case "longtext":
+                case "varbinary":
                     return "STRING";
 
 
 
                 case "System.Boolean":
-                    return "BIT";
+                case "bit":
+                    return "BOOL";
 
 
 
                 case "System.DateTime":
+                case "timestamp":
                     return "timestamp";
 
 
@@ -1829,6 +1835,7 @@ namespace DashboardApi.Controllers
 
 
                 case "System.Decimal":
+                case "decimal":
                     if (numericPrecision != -1 && numericScale != -1)
                         return "DECIMAL(" + numericPrecision + "," + numericScale + ")";
                     else
@@ -1852,11 +1859,12 @@ namespace DashboardApi.Controllers
 
 
                 case "System.Int32":
+                case "int":
                     return "INT";
 
 
 
-                case "System.Int16":
+                case "System.Int16":                
                     return "SMALLINT";
 
 
@@ -2032,6 +2040,145 @@ namespace DashboardApi.Controllers
                 Console.WriteLine(combi);
 
             return allCombinations;
+        }
+
+
+
+        [Route("api/data/connectOdbc")]
+        [HttpPost]
+        public Response ConnectODBC(OdbcModel odbcModel)
+        {
+            Response resp = new Response();
+            try
+            {
+                string connString = odbcModel.ConnectionString; // "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";
+                var databaseName = connString.Substring(connString.IndexOf("Database"));
+                databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 9);
+                using (OdbcConnection con = new OdbcConnection(connString))
+                {
+                    OdbcCommand cmd = new OdbcCommand("SELECT table_name FROM information_schema.tables where table_schema='" + databaseName + "';", con);
+                    OdbcDataAdapter da = new OdbcDataAdapter(cmd);
+                    DataSet ds = new DataSet();
+                    da.Fill(ds);
+                    DataTable dataTable = ds.Tables[0];
+                    resp.Data = dataTable;
+                    resp.Status = "success";
+                }
+            }
+            catch (Exception ex)
+            {
+                resp.Status = "failed";
+                resp.Error = ex.Message;
+            }
+
+            return resp;
+
+        }
+
+        [Route("api/data/getColumnsForTableOdbc")]
+        [HttpPost]
+        public Response GetColumnsForTableOdbc (OdbcModel odbcModel)
+        {
+            Response resp = new Response();
+            try
+            {
+                string connString = odbcModel.ConnectionString; // "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";
+                var databaseName = connString.Substring(connString.IndexOf("Database"));
+                databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 9);
+                using (OdbcConnection con = new OdbcConnection(connString))
+                {
+                    OdbcCommand cmd = new OdbcCommand("SELECT COLUMN_NAME, DATA_TYPE,IS_NULLABLE FROM information_schema.columns WHERE table_schema='" + databaseName + "' AND table_name='" + odbcModel.TableName + "'", con);
+                    OdbcDataAdapter da = new OdbcDataAdapter(cmd);
+                    DataSet ds = new DataSet();
+                    da.Fill(ds);
+                    DataTable dataTable = ds.Tables[0];
+                    resp.Data = dataTable;
+                    resp.Status = "success";
+                    //return dataTable;
+                }
+            }
+            catch (Exception ex)
+            {
+                resp.Status = "failed";
+                resp.Error = ex.Message;
+            }
+            
+            return resp;
+        }
+
+        [Route("api/data/importDataFromMySql")]
+        [HttpPost]
+        public Response ImportDataFromMySql(OdbcModel odbcModel)
+        {
+            var tableName = odbcModel.TableName;
+            var delimiter = "|";
+            var databaseName = odbcModel.ConnectionString.Substring(odbcModel.ConnectionString.IndexOf("Database"));
+            databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 9);
+            //string connString = "Driver={ODBC 5.1 Driver};Server=127.0.0.1;Database=classicmodels; User=root;Password=root123;Option=3;";
+            //string connString = "DSN=mysql32test;Database=classicmodels;Uid=root;Pwd=root123;";
+            //string connString = "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";
+            using (OdbcConnection con = new OdbcConnection(odbcModel.ConnectionString))
+            {
+                OdbcCommand cmd = new OdbcCommand("select * from " + tableName, con);
+                OdbcDataAdapter da = new OdbcDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                da.Fill(ds);
+                DataTable dataTable = ds.Tables[0];
+
+                var lines = new List<string>();
+
+                string[] columnNames = dataTable.Columns.Cast<DataColumn>().
+                                                  Select(column => column.ColumnName).
+                                                  ToArray();
+
+                var header = string.Join(",", columnNames);
+                lines.Add(header);
+
+                var valueLines = dataTable.AsEnumerable()
+                                   .Select(row => string.Join("|", row.ItemArray));
+                lines.AddRange(valueLines);
+
+                var path = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/Upload/"), odbcModel.NewTableName + ".csv");
+                File.WriteAllLines(path, lines);
+
+                //SELECT COLUMN_NAME, DATA_TYPE,is_NULLABLE FROM information_schema.columns WHERE table_schema='classicmodels' AND table_name='customers'
+
+                cmd = new OdbcCommand("SELECT COLUMN_NAME, DATA_TYPE,IS_NULLABLE,NUMERIC_PRECISION,NUMERIC_SCALE,CHARACTER_MAXIMUM_LENGTH FROM information_schema.columns WHERE table_schema='"+ databaseName +"' AND table_name='" + tableName + "'", con);
+                da = new OdbcDataAdapter(cmd);
+                ds = new DataSet();
+                da.Fill(ds);
+                dataTable = ds.Tables[0];
+
+                //Create table for MonetDB
+                var columnDetailList = new List<ColumnDetail>();
+                foreach(DataRow row in dataTable.Rows)
+                {
+                    if (odbcModel.ColumnNames.Contains(row["COLUMN_NAME"].ToString()))
+                    {
+                        var col = new ColumnDetail();
+                        col.Name = row["COLUMN_NAME"].ToString();
+                        col.CType = GetSqlType(row["DATA_TYPE"], 10, 10, 2);
+                        columnDetailList.Add(col);
+                    }                    
+                }
+                //tableName = "customersnew";
+                var query = CreateTableFromColumns(columnDetailList, odbcModel.NewTableName);
+                //Create table
+                Response result = ExecuteQueryFromDB(query);
+
+                if (result.Status.ToLower() == "failed")
+                {
+                    return result;
+                }
+
+                var importDataQuery = "COPY OFFSET 2 INTO \"" + odbcModel.NewTableName + "\" FROM '" + path + "' USING DELIMITERS '" + delimiter + "','\n','\"' NULL AS '';";
+                //var importDataQuery = "COPY OFFSET 2 INTO " + tableName + " FROM '" + path + "' USING DELIMITERS '\t';";
+                importDataQuery = importDataQuery.Replace("\\", "/");
+                //Import Data
+                Response importResult = ExecuteQueryFromDB(importDataQuery);
+
+                return importResult;
+            }
         }
 
 

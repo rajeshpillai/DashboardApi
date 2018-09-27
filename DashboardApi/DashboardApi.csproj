@@ -247,6 +247,7 @@
     <Compile Include="Models\Association.cs" />
     <Compile Include="Models\ColumnDetail.cs" />
     <Compile Include="Models\ImportedFileModel.cs" />
+    <Compile Include="Models\OdbcModel.cs" />
     <Compile Include="Models\PageLayoutModel.cs" />
     <Compile Include="Models\Response.cs" />
     <Compile Include="Models\WidgetModel.cs" />
