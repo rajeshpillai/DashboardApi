@@ -13,6 +13,14 @@ namespace DashboardApi.Models
 
         public string NewTableName { get; set; }
 
-        public List<string> ColumnNames { get; set; }
+        public List<DBColumn> ColumnNames { get; set; }
+    }
+
+    public class DBColumn
+    {
+        public string column_name { get; set; }
+
+        public string data_type { get; set; }
+
     }
 }

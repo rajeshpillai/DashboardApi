@@ -1813,19 +1813,26 @@ namespace DashboardApi.Controllers
                 case "mediumtext":
                 case "longtext":
                 case "varbinary":
+                case "character varying":
                     return "STRING";
+
+                case "bytea":
+                    return "BLOB";
 
 
 
                 case "System.Boolean":
                 case "bit":
+                case "boolean":
                     return "BOOL";
 
 
 
                 case "System.DateTime":
                 case "timestamp":
+                case "timestamp without time zone":
                     return "timestamp";
+                    //return "STRING";
 
 
 
@@ -1859,12 +1866,14 @@ namespace DashboardApi.Controllers
 
 
                 case "System.Int32":
-                case "int":
+                case "int": //mysql
+                case "integer": //postgres
                     return "INT";
 
 
 
-                case "System.Int16":                
+                case "System.Int16":
+                case "smallint":
                     return "SMALLINT";
 
 
@@ -2054,9 +2063,21 @@ namespace DashboardApi.Controllers
                 string connString = odbcModel.ConnectionString; // "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";
                 var databaseName = connString.Substring(connString.IndexOf("Database"));
                 databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 9);
-                using (OdbcConnection con = new OdbcConnection(connString))
+                var dsn = connString.Substring(connString.IndexOf("DSN"));
+                dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
+                var tableListQuery = "";
+                if (dsn.Contains("mysql"))
                 {
-                    OdbcCommand cmd = new OdbcCommand("SELECT table_name FROM information_schema.tables where table_schema='" + databaseName + "';", con);
+                    tableListQuery = "SELECT table_name FROM information_schema.tables where table_schema = '" + databaseName + "'; ";
+                } else if (dsn.Contains("postgres"))
+                {
+                    tableListQuery = "SELECT tablename as table_name FROM pg_catalog.pg_tables  where schemaname = 'public';";
+                }
+
+                    using (OdbcConnection con = new OdbcConnection(connString))
+                {
+                    OdbcCommand cmd = new OdbcCommand(tableListQuery, con);
+                    //Postgresql = SELECT tablename FROM pg_catalog.pg_tables  where schemaname = 'public';
                     OdbcDataAdapter da = new OdbcDataAdapter(cmd);
                     DataSet ds = new DataSet();
                     da.Fill(ds);
@@ -2085,9 +2106,23 @@ namespace DashboardApi.Controllers
                 string connString = odbcModel.ConnectionString; // "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";
                 var databaseName = connString.Substring(connString.IndexOf("Database"));
                 databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 9);
+                var dsn = connString.Substring(connString.IndexOf("DSN"));
+                dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
+                var columnListQuery = "";
+                if (dsn.Contains("mysql"))
+                {
+                    columnListQuery = "SELECT COLUMN_NAME column_name, DATA_TYPE data_type,IS_NULLABLE is_nullable FROM information_schema.columns WHERE table_schema='" + databaseName + "' AND table_name='" + odbcModel.TableName + "'";
+                }
+                else if (dsn.Contains("postgres"))
+                {
+                    columnListQuery = "select column_name column_name, data_type data_type, is_nullable is_nullable, character_maximum_length, numeric_precision, numeric_scale from information_schema.columns where table_name = '" + odbcModel.TableName + "';";
+                }
+
+                //                select column_name, data_type, is_nullable, character_maximum_length, numeric_precision, numeric_scale from information_schema.columns where table_name = 'film';
+
                 using (OdbcConnection con = new OdbcConnection(connString))
                 {
-                    OdbcCommand cmd = new OdbcCommand("SELECT COLUMN_NAME, DATA_TYPE,IS_NULLABLE FROM information_schema.columns WHERE table_schema='" + databaseName + "' AND table_name='" + odbcModel.TableName + "'", con);
+                    OdbcCommand cmd = new OdbcCommand(columnListQuery, con);
                     OdbcDataAdapter da = new OdbcDataAdapter(cmd);
                     DataSet ds = new DataSet();
                     da.Fill(ds);
@@ -2114,17 +2149,60 @@ namespace DashboardApi.Controllers
             var delimiter = "|";
             var databaseName = odbcModel.ConnectionString.Substring(odbcModel.ConnectionString.IndexOf("Database"));
             databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 9);
+            var dsn = odbcModel.ConnectionString.Substring(odbcModel.ConnectionString.IndexOf("DSN"));
+            dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
             //string connString = "Driver={ODBC 5.1 Driver};Server=127.0.0.1;Database=classicmodels; User=root;Password=root123;Option=3;";
             //string connString = "DSN=mysql32test;Database=classicmodels;Uid=root;Pwd=root123;";
             //string connString = "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";
             using (OdbcConnection con = new OdbcConnection(odbcModel.ConnectionString))
             {
-                OdbcCommand cmd = new OdbcCommand("select * from " + tableName, con);
+               
+                var selectQuery = "";
+
+                //Create table for MonetDB
+                var columnDetailList = new List<ColumnDetail>();
+                //var columnNames = odbcModel.ColumnNames.Select(c=>c.column_name)
+                //bool isDateTimeColExist = false;
+                foreach (var dbCol in odbcModel.ColumnNames)
+                {
+                    if(dbCol.data_type == "bytea" || dbCol.data_type == "varbinary")
+                    {
+                        continue;
+                    }
+                    var col = new ColumnDetail();
+                    col.Name = dbCol.column_name;
+                    col.CType = GetSqlType(dbCol.data_type, 10, 10, 2);
+                    //isDateTimeColExist = col.CType == "timestamp";
+                    columnDetailList.Add(col);
+                    if(col.CType == "timestamp")
+                    {
+                        //Postgresql= to_char
+                        if (dsn.Contains("postgres"))
+                        {
+                            selectQuery += "to_char( " + col.Name + ", 'YYYY-MM-DD HH:mm:ss') " + col.Name + "  ,";
+                        }
+                        else
+                        {                            
+                            selectQuery += " DATE_FORMAT( " + col.Name + ", '%Y-%m-%d %H:%m:%s') " + col.Name + "  ,";
+                        }
+                            
+
+                    } else
+                    {
+                        selectQuery += col.Name + ",";
+                    }
+                    
+                }
+
+                selectQuery = selectQuery.Remove(selectQuery.LastIndexOf(','), 1);
+
+
+                OdbcCommand cmd = new OdbcCommand("select " + selectQuery + " from " + tableName, con);
                 OdbcDataAdapter da = new OdbcDataAdapter(cmd);
                 DataSet ds = new DataSet();
                 da.Fill(ds);
                 DataTable dataTable = ds.Tables[0];
-
+                
                 var lines = new List<string>();
 
                 string[] columnNames = dataTable.Columns.Cast<DataColumn>().
@@ -2141,26 +2219,38 @@ namespace DashboardApi.Controllers
                 var path = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/Upload/"), odbcModel.NewTableName + ".csv");
                 File.WriteAllLines(path, lines);
 
-                //SELECT COLUMN_NAME, DATA_TYPE,is_NULLABLE FROM information_schema.columns WHERE table_schema='classicmodels' AND table_name='customers'
+                ////SELECT COLUMN_NAME, DATA_TYPE,is_NULLABLE FROM information_schema.columns WHERE table_schema='classicmodels' AND table_name='customers'
+                
+                //var columnListQuery = "";
+                //if (dsn.Contains("mysql"))
+                //{
+                //    columnListQuery = "SELECT COLUMN_NAME column_name, DATA_TYPE data_type,IS_NULLABLE is_nullable FROM information_schema.columns WHERE table_schema='" + databaseName + "' AND table_name='" + odbcModel.TableName + "'";
+                //}
+                //else if (dsn.Contains("postgres"))
+                //{
+                //    columnListQuery = "select column_name column_name, data_type data_type, is_nullable is_nullable, character_maximum_length, numeric_precision, numeric_scale from information_schema.columns where table_name = '" + odbcModel.TableName + "';";
+                //}
 
-                cmd = new OdbcCommand("SELECT COLUMN_NAME, DATA_TYPE,IS_NULLABLE,NUMERIC_PRECISION,NUMERIC_SCALE,CHARACTER_MAXIMUM_LENGTH FROM information_schema.columns WHERE table_schema='"+ databaseName +"' AND table_name='" + tableName + "'", con);
-                da = new OdbcDataAdapter(cmd);
-                ds = new DataSet();
-                da.Fill(ds);
-                dataTable = ds.Tables[0];
+                //cmd = new OdbcCommand(columnListQuery, con);
+                //da = new OdbcDataAdapter(cmd);
+                //ds = new DataSet();
+                //da.Fill(ds);
+                //dataTable = ds.Tables[0];
 
-                //Create table for MonetDB
-                var columnDetailList = new List<ColumnDetail>();
-                foreach(DataRow row in dataTable.Rows)
-                {
-                    if (odbcModel.ColumnNames.Contains(row["COLUMN_NAME"].ToString()))
-                    {
-                        var col = new ColumnDetail();
-                        col.Name = row["COLUMN_NAME"].ToString();
-                        col.CType = GetSqlType(row["DATA_TYPE"], 10, 10, 2);
-                        columnDetailList.Add(col);
-                    }                    
-                }
+                ////Create table for MonetDB
+                //var columnDetailList = new List<ColumnDetail>();
+                ////var columnNames = odbcModel.ColumnNames.Select(c=>c.column_name)
+                //foreach (DataRow row in dataTable.Rows)
+                //{
+                //    var dbCol =  odbcModel.ColumnNames.Where(c => c.column_name == row["column_name"].ToString()).FirstOrDefault();
+                //    if (null != dbCol)
+                //    {
+                //        var col = new ColumnDetail();
+                //        col.Name = row["column_name"].ToString();
+                //        col.CType = GetSqlType(row["data_type"], 10, 10, 2);
+                //        columnDetailList.Add(col);
+                //    }                    
+                //}
                 //tableName = "customersnew";
                 var query = CreateTableFromColumns(columnDetailList, odbcModel.NewTableName);
                 //Create table
