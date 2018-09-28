@@ -22,6 +22,7 @@ using System.Data;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System.Configuration;
+using System.Data.OleDb;
 
 
 namespace DashboardApi.Controllers
@@ -2052,6 +2053,79 @@ namespace DashboardApi.Controllers
         }
 
 
+        [Route("api/data/connectOledb")]
+        [HttpGet]
+        public Response ConnectOLEDB(OdbcModel odbcModel)
+        {
+            //OdbcModel odbcModel = new OdbcModel();
+            ////odbcModel.ConnectionString = "Provider=MariaDB Provider;Data Source=classicmodels;User Id=root;Password=root123;";
+            //odbcModel.ConnectionString = "Provider=MariaDB Provider;Data Source=localhost,3306; Initial Catalog=classicmodels;User ID=root; Password=root123;Activation=SJNF-W6LE-W22Z-DRPV"; 
+
+            Response resp = new Response();
+            try
+            {
+                string connString = odbcModel.ConnectionString; // "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";
+                var databaseName = connString.Substring(connString.IndexOf("Initial Catalog"));
+                databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 16);
+                //var dsn = connString.Substring(connString.IndexOf("DSN"));
+                //dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
+
+                //var reader = OleDbEnumerator.GetRootEnumerator();
+                //string test = "";
+                //var list = new List<String>();
+                //while (reader.Read())
+                //{
+                //    for (var i = 0; i < reader.FieldCount; i++)
+                //    {
+                //        if (reader.GetName(i) == "SOURCES_NAME")
+                //        {
+                //            list.Add(reader.GetValue(i).ToString());
+                //        }
+                //    }
+                //    test += reader.GetName(0) + "  " + reader.GetValue(0);
+                //}
+                //reader.Close();
+
+                ////OleDbEnumerator enumerator = new OleDbEnumerator();
+                ////var data = enumerator.GetElements();
+                ////foreach(OleDbDataReader prov in OleDbEnumerator.GetRootEnumerator())
+                ////{
+                ////    //prov.GetName()
+                ////}
+
+                var dsn = "mysql";
+                var tableListQuery = "";
+                if (dsn.Contains("mysql"))
+                {
+                    tableListQuery = "SELECT table_name FROM information_schema.tables where table_schema = '" + databaseName + "'; ";
+                }
+                else if (dsn.Contains("postgres"))
+                {
+                    tableListQuery = "SELECT tablename as table_name FROM pg_catalog.pg_tables  where schemaname = 'public';";
+                }
+
+                using (OleDbConnection con = new OleDbConnection(connString))
+                {
+                    OleDbCommand cmd = new OleDbCommand(tableListQuery, con);
+                    //Postgresql = SELECT tablename FROM pg_catalog.pg_tables  where schemaname = 'public';
+                    OleDbDataAdapter da = new OleDbDataAdapter(cmd);
+                    DataSet ds = new DataSet();
+                    da.Fill(ds);
+                    DataTable dataTable = ds.Tables[0];
+                    resp.Data = dataTable;
+                    resp.Status = "success";
+                }
+            }
+            catch (Exception ex)
+            {
+                resp.Status = "failed";
+                resp.Error = ex.Message;
+            }
+
+            return resp;
+
+        }
+
 
         [Route("api/data/connectOdbc")]
         [HttpPost]
@@ -2065,14 +2139,24 @@ namespace DashboardApi.Controllers
                 databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 9);
                 var dsn = connString.Substring(connString.IndexOf("DSN"));
                 dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
-                var tableListQuery = "";
+                DBType dbType = DBType.MySql;
                 if (dsn.Contains("mysql"))
                 {
-                    tableListQuery = "SELECT table_name FROM information_schema.tables where table_schema = '" + databaseName + "'; ";
-                } else if (dsn.Contains("postgres"))
-                {
-                    tableListQuery = "SELECT tablename as table_name FROM pg_catalog.pg_tables  where schemaname = 'public';";
+                    dbType = DBType.MySql;
                 }
+                else if (dsn.Contains("postgres"))
+                {
+                    dbType = DBType.PostgreSql;
+                }
+
+                var tableListQuery = DbQueryFactory.GetTableListQuery(dbType,databaseName);
+                //if (dsn.Contains("mysql"))
+                //{
+                //    tableListQuery = "SELECT table_name FROM information_schema.tables where table_schema = '" + databaseName + "'; ";
+                //} else if (dsn.Contains("postgres"))
+                //{
+                //    tableListQuery = "SELECT tablename as table_name FROM pg_catalog.pg_tables  where schemaname = 'public';";
+                //}
 
                     using (OdbcConnection con = new OdbcConnection(connString))
                 {
@@ -2108,18 +2192,19 @@ namespace DashboardApi.Controllers
                 databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 9);
                 var dsn = connString.Substring(connString.IndexOf("DSN"));
                 dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
-                var columnListQuery = "";
+
+                DBType dbType = DBType.MySql;
                 if (dsn.Contains("mysql"))
                 {
-                    columnListQuery = "SELECT COLUMN_NAME column_name, DATA_TYPE data_type,IS_NULLABLE is_nullable FROM information_schema.columns WHERE table_schema='" + databaseName + "' AND table_name='" + odbcModel.TableName + "'";
+                    dbType = DBType.MySql;
                 }
                 else if (dsn.Contains("postgres"))
                 {
-                    columnListQuery = "select column_name column_name, data_type data_type, is_nullable is_nullable, character_maximum_length, numeric_precision, numeric_scale from information_schema.columns where table_name = '" + odbcModel.TableName + "';";
+                    dbType = DBType.PostgreSql;
                 }
 
-                //                select column_name, data_type, is_nullable, character_maximum_length, numeric_precision, numeric_scale from information_schema.columns where table_name = 'film';
-
+                var columnListQuery = DbQueryFactory.GetColumsnForTableQuery(dbType, databaseName, odbcModel.TableName);
+                
                 using (OdbcConnection con = new OdbcConnection(connString))
                 {
                     OdbcCommand cmd = new OdbcCommand(columnListQuery, con);
