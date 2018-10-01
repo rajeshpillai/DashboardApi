@@ -11,10 +11,10 @@ namespace DashboardApi.DbProviders
         {
             switch (dbProviderType)
             {
-                case VizDBProviderType.Odbc:
+                case VizDBProviderType.odbc:
                     return new OdbcDBProvider();                    
 
-                case VizDBProviderType.Oledb:
+                case VizDBProviderType.oledb:
                     return new OledbDBProvider();
                 default:
                     return null;

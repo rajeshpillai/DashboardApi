@@ -16,6 +16,23 @@ namespace DashboardApi.Models
         public List<DBColumn> ColumnNames { get; set; }
     }
 
+    public class DataLoaderModel
+    {
+        public string VizDBProviderType { get; set; }
+
+        public string ConnectionString { get; set; }
+
+        public string DataBaseName { get; set; }
+
+        public string VizDBType { get; set; }
+
+        public string TableName { get; set; }
+
+        public string NewTableName { get; set; }
+
+        public List<DBColumn> ColumnNames { get; set; }
+    }
+
 
     public class NewOdbcModel
     {
@@ -27,17 +44,17 @@ namespace DashboardApi.Models
 
         public string ConnectionName { get; set; }
 
-        public string DataBaseName { get; set; }
+        //public string DataBaseName { get; set; }
 
         public string VizDBType { get; set; }
 
-        public string ConnectionString { get; set; }
+        //public string ConnectionString { get; set; }
 
-        public string TableName { get; set; }
+        //public string TableName { get; set; }
 
-        public string NewTableName { get; set; }
+        //public string NewTableName { get; set; }
 
-        public List<DBColumn> ColumnNames { get; set; }
+        //public List<DBColumn> ColumnNames { get; set; }
     }
 
     public class DBColumn

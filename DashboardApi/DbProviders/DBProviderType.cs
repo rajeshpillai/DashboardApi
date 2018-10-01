@@ -8,8 +8,8 @@ namespace DashboardApi
 
     public enum VizDBProviderType
     {
-        Odbc,
-        Oledb
+        odbc,
+        oledb
     };
 
 }

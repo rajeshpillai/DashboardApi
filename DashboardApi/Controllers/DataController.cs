@@ -2240,10 +2240,10 @@ namespace DashboardApi.Controllers
             try
             {
                 string connString = "DSN=" + odbcModel.DsnName + ";Uid=" + odbcModel.UserName + ";Pwd=" + odbcModel.Password + ";"; //"DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";                               
-                odbcModel.ConnectionString = connString;
+                //odbcModel.ConnectionString = connString;
                 VizDBType dbType = (VizDBType)Enum.Parse(typeof(VizDBType), odbcModel.VizDBType);              
                 var dbListQuery = DbQueryFactory.GetAllDatabasesQuery(dbType);
-                IVizDbProvider vizDbProvider = DbProviderFactory.GetDbProvider(VizDBProviderType.Odbc);
+                IVizDbProvider vizDbProvider = DbProviderFactory.GetDbProvider(VizDBProviderType.odbc);
 
                 using (IDbConnection con = vizDbProvider.GetConnection(connString))
                 {
@@ -2267,24 +2267,27 @@ namespace DashboardApi.Controllers
         }
 
 
-        [Route("api/data/onConnectODBCGetTables")]
+        [Route("api/data/onConnectGetTables")]
         [HttpPost]
-        public Response OnConnectODBCGetTables(NewOdbcModel odbcModel)
+        public Response OnConnectGetTables(DataLoaderModel dataLoaderModel)
         {
             Response resp = new Response();
             try
             {
-                string connString = !string.IsNullOrWhiteSpace(odbcModel.ConnectionString)? odbcModel.ConnectionString : "DSN=" + odbcModel.DsnName + ";Database=" + odbcModel.DataBaseName + ";Uid=" + odbcModel.UserName + ";Pwd=" + odbcModel.Password + ";"; //"DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";                               
-                odbcModel.ConnectionString = connString;
-                VizDBType dbType = (VizDBType)Enum.Parse(typeof(VizDBType), odbcModel.VizDBType);
+                string connString = dataLoaderModel.ConnectionString;// : "DSN=" + dataLoaderModel.DsnName + ";Database=" + dataLoaderModel.DataBaseName + ";Uid=" + dataLoaderModel.UserName + ";Pwd=" + dataLoaderModel.Password + ";"; //"DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";                               
+                //dataLoaderModel.ConnectionString = connString;
+                VizDBType dbType = (VizDBType)Enum.Parse(typeof(VizDBType), dataLoaderModel.VizDBType);
                 // "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";                             
 
-                var tableListQuery = DbQueryFactory.GetTableListQuery(dbType, odbcModel.DataBaseName);
-                using (OdbcConnection con = new OdbcConnection(connString))
+                var tableListQuery = DbQueryFactory.GetTableListQuery(dbType, dataLoaderModel.DataBaseName);
+
+                VizDBProviderType vizDBProviderType = (VizDBProviderType)Enum.Parse(typeof(VizDBProviderType), dataLoaderModel.VizDBProviderType);
+                IVizDbProvider vizDbProvider = DbProviderFactory.GetDbProvider(vizDBProviderType);
+
+                using (IDbConnection con = vizDbProvider.GetConnection(connString))
                 {
-                    OdbcCommand cmd = new OdbcCommand(tableListQuery, con);
-                    //Postgresql = SELECT tablename FROM pg_catalog.pg_tables  where schemaname = 'public';
-                    OdbcDataAdapter da = new OdbcDataAdapter(cmd);
+                    IDbCommand cmd = vizDbProvider.CreateDBCommand(tableListQuery, con);
+                    IDataAdapter da = vizDbProvider.CreateDBDataAdapter(cmd);
                     DataSet ds = new DataSet();
                     da.Fill(ds);
                     DataTable dataTable = ds.Tables[0];
@@ -2302,41 +2305,32 @@ namespace DashboardApi.Controllers
 
         }
 
-        [Route("api/data/getColumnsForTableOdbc")]
+        [Route("api/data/getColumnsForTable")]
         [HttpPost]
-        public Response GetColumnsForTableOdbc (OdbcModel odbcModel)
+        public Response GetColumnsForTable (DataLoaderModel dataLoaderModel)
         {
             Response resp = new Response();
             try
             {
-                string connString = odbcModel.ConnectionString; // "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";
-                var databaseName = connString.Substring(connString.IndexOf("Database"));
-                databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 9);
-                var dsn = connString.Substring(connString.IndexOf("DSN"));
-                dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
+                string connString = dataLoaderModel.ConnectionString;// : "DSN=" + dataLoaderModel.DsnName + ";Database=" + dataLoaderModel.DataBaseName + ";Uid=" + dataLoaderModel.UserName + ";Pwd=" + dataLoaderModel.Password + ";"; //"DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";                               
+                //dataLoaderModel.ConnectionString = connString;
+                VizDBType dbType = (VizDBType)Enum.Parse(typeof(VizDBType), dataLoaderModel.VizDBType);
+                // "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";                             
 
-                VizDBType dbType = VizDBType.mysql;
-                if (dsn.Contains("mysql"))
-                {
-                    dbType = VizDBType.mysql;
-                }
-                else if (dsn.Contains("postgres"))
-                {
-                    dbType = VizDBType.postgresql;
-                }
+                var columnListQuery = DbQueryFactory.GetColumsnForTableQuery(dbType, dataLoaderModel.DataBaseName, dataLoaderModel.TableName);
 
-                var columnListQuery = DbQueryFactory.GetColumsnForTableQuery(dbType, databaseName, odbcModel.TableName);
-                
-                using (OdbcConnection con = new OdbcConnection(connString))
+                VizDBProviderType vizDBProviderType = (VizDBProviderType)Enum.Parse(typeof(VizDBProviderType), dataLoaderModel.VizDBProviderType);
+                IVizDbProvider vizDbProvider = DbProviderFactory.GetDbProvider(vizDBProviderType);
+
+                using (IDbConnection con = vizDbProvider.GetConnection(connString))
                 {
-                    OdbcCommand cmd = new OdbcCommand(columnListQuery, con);
-                    OdbcDataAdapter da = new OdbcDataAdapter(cmd);
+                    IDbCommand cmd = vizDbProvider.CreateDBCommand(columnListQuery, con);
+                    IDataAdapter da = vizDbProvider.CreateDBDataAdapter(cmd);
                     DataSet ds = new DataSet();
                     da.Fill(ds);
                     DataTable dataTable = ds.Tables[0];
                     resp.Data = dataTable;
                     resp.Status = "success";
-                    //return dataTable;
                 }
             }
             catch (Exception ex)
@@ -2348,31 +2342,38 @@ namespace DashboardApi.Controllers
             return resp;
         }
 
-        [Route("api/data/importDataFromMySql")]
+        [Route("api/data/importData")]
         [HttpPost]
-        public Response ImportDataFromMySql(OdbcModel odbcModel)
+        public Response ImportData(DataLoaderModel dataLoaderModel)
         {
-            var tableName = odbcModel.TableName;
+            var tableName = dataLoaderModel.TableName;
             var delimiter = "|";
-            var databaseName = odbcModel.ConnectionString.Substring(odbcModel.ConnectionString.IndexOf("Database"));
-            databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 9);
-            var dsn = odbcModel.ConnectionString.Substring(odbcModel.ConnectionString.IndexOf("DSN"));
-            dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
+            var databaseName = dataLoaderModel.DataBaseName;
+            VizDBType dbType = (VizDBType)Enum.Parse(typeof(VizDBType), dataLoaderModel.VizDBType);
+            //var databaseName = odbcModel.ConnectionString.Substring(odbcModel.ConnectionString.IndexOf("Database"));
+            //databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 9);
+            //var dsn = odbcModel.ConnectionString.Substring(odbcModel.ConnectionString.IndexOf("DSN"));
+            //dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
             //string connString = "Driver={ODBC 5.1 Driver};Server=127.0.0.1;Database=classicmodels; User=root;Password=root123;Option=3;";
             //string connString = "DSN=mysql32test;Database=classicmodels;Uid=root;Pwd=root123;";
             //string connString = "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";
-            using (OdbcConnection con = new OdbcConnection(odbcModel.ConnectionString))
+
+            VizDBProviderType vizDBProviderType = (VizDBProviderType)Enum.Parse(typeof(VizDBProviderType), dataLoaderModel.VizDBProviderType);
+            IVizDbProvider vizDbProvider = DbProviderFactory.GetDbProvider(vizDBProviderType);
+
+            //using (OdbcConnection con = new OdbcConnection(dataLoaderModel.ConnectionString))
+            using (IDbConnection con = vizDbProvider.GetConnection(dataLoaderModel.ConnectionString))           
             {
-               
+
                 var selectQuery = "";
 
                 //Create table for MonetDB
                 var columnDetailList = new List<ColumnDetail>();
                 //var columnNames = odbcModel.ColumnNames.Select(c=>c.column_name)
                 //bool isDateTimeColExist = false;
-                foreach (var dbCol in odbcModel.ColumnNames)
+                foreach (var dbCol in dataLoaderModel.ColumnNames)
                 {
-                    if(dbCol.data_type == "bytea" || dbCol.data_type == "varbinary")
+                    if (dbCol.data_type == "bytea" || dbCol.data_type == "varbinary")
                     {
                         continue;
                     }
@@ -2381,35 +2382,36 @@ namespace DashboardApi.Controllers
                     col.CType = GetSqlType(dbCol.data_type, 10, 10, 2);
                     //isDateTimeColExist = col.CType == "timestamp";
                     columnDetailList.Add(col);
-                    if(col.CType == "timestamp")
+                    if (col.CType == "timestamp")
                     {
                         //Postgresql= to_char
-                        if (dsn.Contains("postgres"))
+                        if (dbType == VizDBType.postgresql)
                         {
                             selectQuery += "to_char( " + col.Name + ", 'YYYY-MM-DD HH:mm:ss') " + col.Name + "  ,";
                         }
                         else
-                        {                            
+                        {
                             selectQuery += " DATE_FORMAT( " + col.Name + ", '%Y-%m-%d %H:%m:%s') " + col.Name + "  ,";
                         }
-                            
 
-                    } else
+
+                    }
+                    else
                     {
                         selectQuery += col.Name + ",";
                     }
-                    
+
                 }
 
                 selectQuery = selectQuery.Remove(selectQuery.LastIndexOf(','), 1);
 
 
-                OdbcCommand cmd = new OdbcCommand("select " + selectQuery + " from " + tableName, con);
-                OdbcDataAdapter da = new OdbcDataAdapter(cmd);
+                IDbCommand cmd = vizDbProvider.CreateDBCommand("select " + selectQuery + " from " + tableName, con);
+                IDataAdapter da = vizDbProvider.CreateDBDataAdapter(cmd);
                 DataSet ds = new DataSet();
                 da.Fill(ds);
                 DataTable dataTable = ds.Tables[0];
-                
+
                 var lines = new List<string>();
 
                 string[] columnNames = dataTable.Columns.Cast<DataColumn>().
@@ -2423,43 +2425,10 @@ namespace DashboardApi.Controllers
                                    .Select(row => string.Join("|", row.ItemArray));
                 lines.AddRange(valueLines);
 
-                var path = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/Upload/"), odbcModel.NewTableName + ".csv");
+                var path = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/Upload/"), dataLoaderModel.NewTableName + ".csv");
                 File.WriteAllLines(path, lines);
 
-                ////SELECT COLUMN_NAME, DATA_TYPE,is_NULLABLE FROM information_schema.columns WHERE table_schema='classicmodels' AND table_name='customers'
-                
-                //var columnListQuery = "";
-                //if (dsn.Contains("mysql"))
-                //{
-                //    columnListQuery = "SELECT COLUMN_NAME column_name, DATA_TYPE data_type,IS_NULLABLE is_nullable FROM information_schema.columns WHERE table_schema='" + databaseName + "' AND table_name='" + odbcModel.TableName + "'";
-                //}
-                //else if (dsn.Contains("postgres"))
-                //{
-                //    columnListQuery = "select column_name column_name, data_type data_type, is_nullable is_nullable, character_maximum_length, numeric_precision, numeric_scale from information_schema.columns where table_name = '" + odbcModel.TableName + "';";
-                //}
-
-                //cmd = new OdbcCommand(columnListQuery, con);
-                //da = new OdbcDataAdapter(cmd);
-                //ds = new DataSet();
-                //da.Fill(ds);
-                //dataTable = ds.Tables[0];
-
-                ////Create table for MonetDB
-                //var columnDetailList = new List<ColumnDetail>();
-                ////var columnNames = odbcModel.ColumnNames.Select(c=>c.column_name)
-                //foreach (DataRow row in dataTable.Rows)
-                //{
-                //    var dbCol =  odbcModel.ColumnNames.Where(c => c.column_name == row["column_name"].ToString()).FirstOrDefault();
-                //    if (null != dbCol)
-                //    {
-                //        var col = new ColumnDetail();
-                //        col.Name = row["column_name"].ToString();
-                //        col.CType = GetSqlType(row["data_type"], 10, 10, 2);
-                //        columnDetailList.Add(col);
-                //    }                    
-                //}
-                //tableName = "customersnew";
-                var query = CreateTableFromColumns(columnDetailList, odbcModel.NewTableName);
+                var query = CreateTableFromColumns(columnDetailList, dataLoaderModel.NewTableName);
                 //Create table
                 Response result = ExecuteQueryFromDB(query);
 
@@ -2468,7 +2437,7 @@ namespace DashboardApi.Controllers
                     return result;
                 }
 
-                var importDataQuery = "COPY OFFSET 2 INTO \"" + odbcModel.NewTableName + "\" FROM '" + path + "' USING DELIMITERS '" + delimiter + "','\n','\"' NULL AS '';";
+                var importDataQuery = "COPY OFFSET 2 INTO \"" + dataLoaderModel.NewTableName + "\" FROM '" + path + "' USING DELIMITERS '" + delimiter + "','\n','\"' NULL AS '';";
                 //var importDataQuery = "COPY OFFSET 2 INTO " + tableName + " FROM '" + path + "' USING DELIMITERS '\t';";
                 importDataQuery = importDataQuery.Replace("\\", "/");
                 //Import Data
