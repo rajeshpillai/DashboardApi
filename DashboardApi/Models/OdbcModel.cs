@@ -57,6 +57,25 @@ namespace DashboardApi.Models
         //public List<DBColumn> ColumnNames { get; set; }
     }
 
+
+    public class OleDbModel
+    {
+        
+        public string Provider { get; set; }
+
+        public string Datasource { get; set; }
+
+        public string UserName { get; set; }
+
+        public string Password { get; set; }
+
+        public string ConnectionName { get; set; }
+       
+        public string VizDBType { get; set; }
+
+        public string AdditionalProperties { get; set; }
+    }
+
     public class DBColumn
     {
         public string column_name { get; set; }

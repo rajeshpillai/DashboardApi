@@ -2152,84 +2152,116 @@ namespace DashboardApi.Controllers
             return allDSN;
         }
 
-        [Route("api/data/connectOledb")]
+        [Route("api/data/listAllOldbProviders")]
         [HttpGet]
-        public Response ConnectOLEDB() //OdbcModel odbcModel
+        public List<VizOledbProvider> ListAllOldbProviders()
         {
-            OdbcModel odbcModel = new OdbcModel();
-            //odbcModel.ConnectionString = "Provider=MariaDB Provider;Data Source=classicmodels;User Id=root;Password=root123;";
-            odbcModel.ConnectionString = "Provider=MariaDB Provider;Data Source=localhost,3306; Initial Catalog=classicmodels;User ID=root; Password=root123;Activation=SJNF-W6LE-W22Z-DRPV";
+            List<VizOledbProvider> providerList = new List<VizOledbProvider>();           
 
-            Response resp = new Response();
-            try
-            {
-                string connString = odbcModel.ConnectionString; // "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";
-                var databaseName = connString.Substring(connString.IndexOf("Initial Catalog"));
-                databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 16);
-                //var dsn = connString.Substring(connString.IndexOf("DSN"));
-                //dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
-
-                var t = ListAllDSN();
-
-                var reader = OleDbEnumerator.GetRootEnumerator();
-                string test = "";
-                var list = new List<String>();
-                while (reader.Read())
+            var reader = OleDbEnumerator.GetRootEnumerator();
+            //string test = "";           
+            while (reader.Read())
+            {     
+                var provider = new VizOledbProvider();                
+                for (var i = 0; i < reader.FieldCount; i++)
                 {
-                    for (var i = 0; i < reader.FieldCount; i++)
+                    if (reader.GetName(i) == "SOURCES_NAME")
                     {
-                        if (reader.GetName(i) == "SOURCES_NAME")
-                        {
-                            list.Add(reader.GetValue(i).ToString());
-                        }
+                        provider.Name= reader.GetValue(i).ToString();
+                        provider.VizDBType = GetDbTypeByDsnDriver(provider.Name).ToString();
+                        //providerList.Add(new VizOledbProvider() { Name = provider, VizDBType = GetDbTypeByDsnDriver(provider).ToString() });
+                    } else if (reader.GetName(i) == "SOURCES_DESCRIPTION")
+                    {
+                        provider.Description = reader.GetValue(i).ToString();
+                        //providerList.Add(new VizOledbProvider() { Name = provider, VizDBType = GetDbTypeByDsnDriver(provider).ToString() });
                     }
-                    test += "  " + reader.GetName(0) + "  " + reader.GetValue(0);
                 }
-                reader.Close();
+                providerList.Add(provider);
+                //test += "  " + reader.GetName(0) + "  " + reader.GetValue(0);
+            }
+            reader.Close();
+        
+            return providerList;
+        }
+
+        //[Route("api/data/connectOledb")]
+        //[HttpGet]
+        //public Response ConnectOLEDB() //OdbcModel odbcModel
+        //{
+        //    OdbcModel odbcModel = new OdbcModel();
+        //    //odbcModel.ConnectionString = "Provider=MariaDB Provider;Data Source=classicmodels;User Id=root;Password=root123;";
+        //    odbcModel.ConnectionString = "Provider=MariaDB Provider;Data Source=localhost,3306; Initial Catalog=classicmodels;User ID=root; Password=root123;Activation=SJNF-W6LE-W22Z-DRPV";
+
+        //    Response resp = new Response();
+        //    try
+        //    {
+        //        string connString = odbcModel.ConnectionString; // "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";
+        //        var databaseName = connString.Substring(connString.IndexOf("Initial Catalog"));
+        //        databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 16);
+        //        //var dsn = connString.Substring(connString.IndexOf("DSN"));
+        //        //dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
+
+        //        var t = ListAllDSN();
+
+        //        var reader = OleDbEnumerator.GetRootEnumerator();
+        //        string test = "";
+        //        var list = new List<String>();
+        //        while (reader.Read())
+        //        {
+        //            for (var i = 0; i < reader.FieldCount; i++)
+        //            {
+        //                if (reader.GetName(i) == "SOURCES_NAME")
+        //                {
+        //                    list.Add(reader.GetValue(i).ToString());
+        //                }
+        //            }
+        //            test += "  " + reader.GetName(0) + "  " + reader.GetValue(0);
+        //        }
+        //        reader.Close();
 
 
 
                 
 
-                ////OleDbEnumerator enumerator = new OleDbEnumerator();
-                ////var data = enumerator.GetElements();
-                ////foreach(OleDbDataReader prov in OleDbEnumerator.GetRootEnumerator())
-                ////{
-                ////    //prov.GetName()
-                ////}
+        //        ////OleDbEnumerator enumerator = new OleDbEnumerator();
+        //        ////var data = enumerator.GetElements();
+        //        ////foreach(OleDbDataReader prov in OleDbEnumerator.GetRootEnumerator())
+        //        ////{
+        //        ////    //prov.GetName()
+        //        ////}
 
-                var dsn = "mysql";
-                var tableListQuery = "";
-                if (dsn.Contains("mysql"))
-                {
-                    tableListQuery = "SELECT table_name FROM information_schema.tables where table_schema = '" + databaseName + "'; ";
-                }
-                else if (dsn.Contains("postgres"))
-                {
-                    tableListQuery = "SELECT tablename as table_name FROM pg_catalog.pg_tables  where schemaname = 'public';";
-                }
+        //        var dsn = "mysql";
+        //        var tableListQuery = "";
+        //        if (dsn.Contains("mysql"))
+        //        {
+        //            tableListQuery = "SELECT table_name FROM information_schema.tables where table_schema = '" + databaseName + "'; ";
+        //        }
+        //        else if (dsn.Contains("postgres"))
+        //        {
+        //            tableListQuery = "SELECT tablename as table_name FROM pg_catalog.pg_tables  where schemaname = 'public';";
+        //        }
 
-                using (OleDbConnection con = new OleDbConnection(connString))
-                {
-                    OleDbCommand cmd = new OleDbCommand(tableListQuery, con);
-                    //Postgresql = SELECT tablename FROM pg_catalog.pg_tables  where schemaname = 'public';
-                    OleDbDataAdapter da = new OleDbDataAdapter(cmd);
-                    DataSet ds = new DataSet();
-                    da.Fill(ds);
-                    DataTable dataTable = ds.Tables[0];
-                    resp.Data = dataTable;
-                    resp.Status = "success";
-                }
-            }
-            catch (Exception ex)
-            {
-                resp.Status = "failed";
-                resp.Error = ex.Message;
-            }
+        //        using (OleDbConnection con = new OleDbConnection(connString))
+        //        {
+        //            OleDbCommand cmd = new OleDbCommand(tableListQuery, con);
+        //            //Postgresql = SELECT tablename FROM pg_catalog.pg_tables  where schemaname = 'public';
+        //            OleDbDataAdapter da = new OleDbDataAdapter(cmd);
+        //            DataSet ds = new DataSet();
+        //            da.Fill(ds);
+        //            DataTable dataTable = ds.Tables[0];
+        //            resp.Data = dataTable;
+        //            resp.Status = "success";
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        resp.Status = "failed";
+        //        resp.Error = ex.Message;
+        //    }
 
-            return resp;
+        //    return resp;
 
-        }
+        //}
 
 
         [Route("api/data/createODBCConnection")]
@@ -2248,6 +2280,42 @@ namespace DashboardApi.Controllers
                 using (IDbConnection con = vizDbProvider.GetConnection(connString))
                 {
                     IDbCommand cmd = vizDbProvider.CreateDBCommand(dbListQuery,con);                    
+                    IDataAdapter da = vizDbProvider.CreateDBDataAdapter(cmd);
+                    DataSet ds = new DataSet();
+                    da.Fill(ds);
+                    DataTable dataTable = ds.Tables[0];
+                    resp.Data = dataTable;
+                    resp.Status = "success";
+                }
+            }
+            catch (Exception ex)
+            {
+                resp.Status = "failed";
+                resp.Error = ex.Message;
+            }
+
+            return resp;
+
+        }
+
+
+        [Route("api/data/createOLEDBConnection")]
+        [HttpPost]
+        public Response CreateOLEDBConnection(OleDbModel oledbModel)
+        {
+            Response resp = new Response();
+            try
+            {
+                string connString = "Provider=" + oledbModel.Provider + ";Data Source=" + oledbModel.Datasource + ";User ID=" + oledbModel.UserName + ";Password=" + oledbModel.Password + ";" + (!string.IsNullOrWhiteSpace(oledbModel.AdditionalProperties)? oledbModel.AdditionalProperties : "");
+                //"Provider=MariaDB Provider;Data Source=localhost,3306; Initial Catalog=classicmodels;User ID=root; Password=root123;Activation=SJNF-W6LE-W22Z-DRPV";
+                //odbcModel.ConnectionString = connString;
+                VizDBType dbType = (VizDBType)Enum.Parse(typeof(VizDBType), oledbModel.VizDBType);
+                var dbListQuery = DbQueryFactory.GetAllDatabasesQuery(dbType);
+                IVizDbProvider vizDbProvider = DbProviderFactory.GetDbProvider(VizDBProviderType.oledb);
+
+                using (IDbConnection con = vizDbProvider.GetConnection(connString))
+                {
+                    IDbCommand cmd = vizDbProvider.CreateDBCommand(dbListQuery, con);
                     IDataAdapter da = vizDbProvider.CreateDBDataAdapter(cmd);
                     DataSet ds = new DataSet();
                     da.Fill(ds);

@@ -18,4 +18,11 @@ namespace DashboardApi.Models
         public string DsnType { get; set; }
         public string VizDBType { get; set; }
     }
+
+    public class VizOledbProvider
+    {
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public string VizDBType { get; set; }
+    }
 }
