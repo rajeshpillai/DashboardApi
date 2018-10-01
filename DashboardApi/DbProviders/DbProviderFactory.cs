@@ -5,22 +5,16 @@ using System.Web;
 
 namespace DashboardApi.DbProviders
 {
-    enum DBProviderType
-    {
-        Odbc,
-        Oledb
-    };
-
     public class DbProviderFactory
     {
-        static IDbProvider GetDbProvider(DBProviderType dbProviderType)
+        public static IVizDbProvider GetDbProvider(VizDBProviderType dbProviderType)
         {
             switch (dbProviderType)
             {
-                case DBProviderType.Odbc:
+                case VizDBProviderType.Odbc:
                     return new OdbcDBProvider();                    
 
-                case DBProviderType.Oledb:
+                case VizDBProviderType.Oledb:
                     return new OledbDBProvider();
                 default:
                     return null;

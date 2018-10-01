@@ -3,7 +3,7 @@ using System.Data.Odbc;
 
 namespace DashboardApi.DbProviders
 {
-    public class OdbcDBProvider: IDbProvider
+    public class OdbcDBProvider: IVizDbProvider
     {
         public IDbConnection GetConnection(string connString)
         {

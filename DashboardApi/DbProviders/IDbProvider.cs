@@ -7,7 +7,7 @@ using System.Data;
 
 namespace DashboardApi.DbProviders
 {
-    public interface IDbProvider
+    public interface IVizDbProvider
     {
         IDbConnection GetConnection(string connString);
 

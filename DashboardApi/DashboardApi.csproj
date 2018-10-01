@@ -242,6 +242,7 @@
     <Compile Include="Combinatorics\Variations.cs" />
     <Compile Include="Controllers\DataController.cs" />
     <Compile Include="DbProviders\DbProviderFactory.cs" />
+    <Compile Include="DbProviders\DBProviderType.cs" />
     <Compile Include="DbProviders\IDbProvider.cs" />
     <Compile Include="DbProviders\OdbcDBProvider.cs" />
     <Compile Include="DbProviders\OledbDBProvider.cs" />
@@ -250,6 +251,7 @@
     </Compile>
     <Compile Include="Models\Association.cs" />
     <Compile Include="Models\ColumnDetail.cs" />
+    <Compile Include="Models\Dsn.cs" />
     <Compile Include="Models\ImportedFileModel.cs" />
     <Compile Include="Models\OdbcModel.cs" />
     <Compile Include="Models\PageLayoutModel.cs" />
@@ -258,7 +260,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="QueryEngine\QueryEngine.cs" />
     <Compile Include="QueryEngine\QueryExecuteEngine.cs" />
-    <Compile Include="QueryEngine\QueryFactory.cs" />
+    <Compile Include="QueryEngine\DbQueryFactory.cs" />
     <Compile Include="Utility\Common.cs" />
     <Compile Include="Utility\CompressionHelper.cs" />
     <Compile Include="Utility\Dijkstra.cs" />

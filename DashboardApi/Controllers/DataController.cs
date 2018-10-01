@@ -23,7 +23,8 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System.Configuration;
 using System.Data.OleDb;
-
+using Microsoft.Win32;
+using DashboardApi.DbProviders;
 
 namespace DashboardApi.Controllers
 {
@@ -2053,13 +2054,111 @@ namespace DashboardApi.Controllers
         }
 
 
+        //private List<string> EnumDsn()
+        //{
+        //    List<string> list = new List<string>();
+        //    list.AddRange(EnumDsn(Registry.CurrentUser));
+        //    list.AddRange(EnumDsn(Registry.LocalMachine));
+        //    return list;
+        //}
+
+        //private IEnumerable<string> EnumDsn(RegistryKey rootKey)
+        //{
+        //    RegistryKey regKey = rootKey.OpenSubKey(@"Software\ODBC\ODBC.INI\ODBC Data Sources");
+        //    if (regKey != null)
+        //    {
+        //        foreach (string name in regKey.GetValueNames())
+        //        {
+        //            string value = regKey.GetValue(name, "").ToString();
+        //            yield return name;
+        //        }
+        //    }
+        //}
+
+         private VizDBType GetDbTypeByDsnDriver(string driver)
+        {
+            VizDBType dbType = VizDBType.mysql;
+            if (driver.ToLower().Contains("mysql"))
+            {
+                dbType = VizDBType.mysql;
+            } else if (driver.ToLower().Contains("postgresql"))
+            {
+                dbType = VizDBType.postgresql;
+            }
+
+            return dbType;
+        }
+
+        [Route("api/data/listAllDSN")]
+        [HttpGet]
+        public List<VizDsn> ListAllDSN()
+        {
+            List<VizDsn> allDSN = new List<VizDsn>();
+
+            // Get User DNS Names
+            RegistryKey reg = (Registry.CurrentUser).OpenSubKey("Software");
+            reg = reg.OpenSubKey("ODBC");
+            reg = reg.OpenSubKey("ODBC.INI");
+            reg = reg.OpenSubKey("ODBC Data Sources");
+
+            if (reg != null)
+            {
+                // Get all DSN entries defined in DSN_LOC_IN_REGISTRY.
+                foreach (string s in reg.GetValueNames())
+                {                    
+                    var driver = (string)reg.GetValue(s);
+                    if(driver.ToLower() == "installed"){ continue;}
+                    allDSN.Add(new VizDsn() { Name=s, Driver=driver, DsnType= VizDsnType.USER.ToString(), VizDBType= GetDbTypeByDsnDriver(driver).ToString() });
+                }
+            }
+            try
+            {
+                reg.Close();
+            }
+            catch (System.Exception ex)
+            {
+            }
+
+            // Get System DNS Names
+            reg = (Registry.LocalMachine).OpenSubKey("Software");
+            reg = reg.OpenSubKey("ODBC");
+            reg = reg.OpenSubKey("ODBC.INI");
+            reg = reg.OpenSubKey("ODBC Data Sources");
+
+            if (reg != null)
+            {
+                // Get all DSN entries defined in DSN_LOC_IN_REGISTRY.
+                foreach (string s in reg.GetValueNames())
+                {
+                    try
+                    {
+                        var driver = (string)reg.GetValue(s);
+                        if (driver.ToLower() == "installed") { continue; }
+                        allDSN.Add(new VizDsn() { Name = s, Driver = driver, DsnType = VizDsnType.SYSTEM.ToString(), VizDBType = GetDbTypeByDsnDriver(driver).ToString() });
+                    }
+                    catch (System.Exception ex)
+                    {
+                    }
+                }
+            }
+            try
+            {
+                reg.Close();
+            }
+            catch (System.Exception ex)
+            {
+            }
+
+            return allDSN;
+        }
+
         [Route("api/data/connectOledb")]
         [HttpGet]
-        public Response ConnectOLEDB(OdbcModel odbcModel)
+        public Response ConnectOLEDB() //OdbcModel odbcModel
         {
-            //OdbcModel odbcModel = new OdbcModel();
-            ////odbcModel.ConnectionString = "Provider=MariaDB Provider;Data Source=classicmodels;User Id=root;Password=root123;";
-            //odbcModel.ConnectionString = "Provider=MariaDB Provider;Data Source=localhost,3306; Initial Catalog=classicmodels;User ID=root; Password=root123;Activation=SJNF-W6LE-W22Z-DRPV"; 
+            OdbcModel odbcModel = new OdbcModel();
+            //odbcModel.ConnectionString = "Provider=MariaDB Provider;Data Source=classicmodels;User Id=root;Password=root123;";
+            odbcModel.ConnectionString = "Provider=MariaDB Provider;Data Source=localhost,3306; Initial Catalog=classicmodels;User ID=root; Password=root123;Activation=SJNF-W6LE-W22Z-DRPV";
 
             Response resp = new Response();
             try
@@ -2070,21 +2169,27 @@ namespace DashboardApi.Controllers
                 //var dsn = connString.Substring(connString.IndexOf("DSN"));
                 //dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
 
-                //var reader = OleDbEnumerator.GetRootEnumerator();
-                //string test = "";
-                //var list = new List<String>();
-                //while (reader.Read())
-                //{
-                //    for (var i = 0; i < reader.FieldCount; i++)
-                //    {
-                //        if (reader.GetName(i) == "SOURCES_NAME")
-                //        {
-                //            list.Add(reader.GetValue(i).ToString());
-                //        }
-                //    }
-                //    test += reader.GetName(0) + "  " + reader.GetValue(0);
-                //}
-                //reader.Close();
+                var t = ListAllDSN();
+
+                var reader = OleDbEnumerator.GetRootEnumerator();
+                string test = "";
+                var list = new List<String>();
+                while (reader.Read())
+                {
+                    for (var i = 0; i < reader.FieldCount; i++)
+                    {
+                        if (reader.GetName(i) == "SOURCES_NAME")
+                        {
+                            list.Add(reader.GetValue(i).ToString());
+                        }
+                    }
+                    test += "  " + reader.GetName(0) + "  " + reader.GetValue(0);
+                }
+                reader.Close();
+
+
+
+                
 
                 ////OleDbEnumerator enumerator = new OleDbEnumerator();
                 ////var data = enumerator.GetElements();
@@ -2127,38 +2232,55 @@ namespace DashboardApi.Controllers
         }
 
 
-        [Route("api/data/connectOdbc")]
+        [Route("api/data/createODBCConnection")]
         [HttpPost]
-        public Response ConnectODBC(OdbcModel odbcModel)
+        public Response CreateODBCConnection(NewOdbcModel odbcModel)
         {
             Response resp = new Response();
             try
             {
-                string connString = odbcModel.ConnectionString; // "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";
-                var databaseName = connString.Substring(connString.IndexOf("Database"));
-                databaseName = databaseName.Substring(databaseName.IndexOf("=") + 1, databaseName.IndexOf(";") - 9);
-                var dsn = connString.Substring(connString.IndexOf("DSN"));
-                dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
-                DBType dbType = DBType.MySql;
-                if (dsn.Contains("mysql"))
-                {
-                    dbType = DBType.MySql;
-                }
-                else if (dsn.Contains("postgres"))
-                {
-                    dbType = DBType.PostgreSql;
-                }
+                string connString = "DSN=" + odbcModel.DsnName + ";Uid=" + odbcModel.UserName + ";Pwd=" + odbcModel.Password + ";"; //"DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";                               
+                odbcModel.ConnectionString = connString;
+                VizDBType dbType = (VizDBType)Enum.Parse(typeof(VizDBType), odbcModel.VizDBType);              
+                var dbListQuery = DbQueryFactory.GetAllDatabasesQuery(dbType);
+                IVizDbProvider vizDbProvider = DbProviderFactory.GetDbProvider(VizDBProviderType.Odbc);
 
-                var tableListQuery = DbQueryFactory.GetTableListQuery(dbType,databaseName);
-                //if (dsn.Contains("mysql"))
-                //{
-                //    tableListQuery = "SELECT table_name FROM information_schema.tables where table_schema = '" + databaseName + "'; ";
-                //} else if (dsn.Contains("postgres"))
-                //{
-                //    tableListQuery = "SELECT tablename as table_name FROM pg_catalog.pg_tables  where schemaname = 'public';";
-                //}
+                using (IDbConnection con = vizDbProvider.GetConnection(connString))
+                {
+                    IDbCommand cmd = vizDbProvider.CreateDBCommand(dbListQuery,con);                    
+                    IDataAdapter da = vizDbProvider.CreateDBDataAdapter(cmd);
+                    DataSet ds = new DataSet();
+                    da.Fill(ds);
+                    DataTable dataTable = ds.Tables[0];
+                    resp.Data = dataTable;
+                    resp.Status = "success";
+                }
+            }
+            catch (Exception ex)
+            {
+                resp.Status = "failed";
+                resp.Error = ex.Message;
+            }
 
-                    using (OdbcConnection con = new OdbcConnection(connString))
+            return resp;
+
+        }
+
+
+        [Route("api/data/onConnectODBCGetTables")]
+        [HttpPost]
+        public Response OnConnectODBCGetTables(NewOdbcModel odbcModel)
+        {
+            Response resp = new Response();
+            try
+            {
+                string connString = !string.IsNullOrWhiteSpace(odbcModel.ConnectionString)? odbcModel.ConnectionString : "DSN=" + odbcModel.DsnName + ";Database=" + odbcModel.DataBaseName + ";Uid=" + odbcModel.UserName + ";Pwd=" + odbcModel.Password + ";"; //"DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";                               
+                odbcModel.ConnectionString = connString;
+                VizDBType dbType = (VizDBType)Enum.Parse(typeof(VizDBType), odbcModel.VizDBType);
+                // "DSN=vizmysql;Database=classicmodels;Uid=root;Pwd=root123;";                             
+
+                var tableListQuery = DbQueryFactory.GetTableListQuery(dbType, odbcModel.DataBaseName);
+                using (OdbcConnection con = new OdbcConnection(connString))
                 {
                     OdbcCommand cmd = new OdbcCommand(tableListQuery, con);
                     //Postgresql = SELECT tablename FROM pg_catalog.pg_tables  where schemaname = 'public';
@@ -2193,14 +2315,14 @@ namespace DashboardApi.Controllers
                 var dsn = connString.Substring(connString.IndexOf("DSN"));
                 dsn = dsn.Substring(dsn.IndexOf("=") + 1, dsn.IndexOf(";") - 4);
 
-                DBType dbType = DBType.MySql;
+                VizDBType dbType = VizDBType.mysql;
                 if (dsn.Contains("mysql"))
                 {
-                    dbType = DBType.MySql;
+                    dbType = VizDBType.mysql;
                 }
                 else if (dsn.Contains("postgres"))
                 {
-                    dbType = DBType.PostgreSql;
+                    dbType = VizDBType.postgresql;
                 }
 
                 var columnListQuery = DbQueryFactory.GetColumsnForTableQuery(dbType, databaseName, odbcModel.TableName);

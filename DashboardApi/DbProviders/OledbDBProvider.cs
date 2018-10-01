@@ -3,7 +3,7 @@ using System.Data.OleDb;
 
 namespace DashboardApi.DbProviders
 {
-    public class OledbDBProvider : IDbProvider
+    public class OledbDBProvider : IVizDbProvider
     {
         public IDbConnection GetConnection(string connString)
         {
