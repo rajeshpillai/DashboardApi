@@ -1816,6 +1816,7 @@ namespace DashboardApi.Controllers
                 case "longtext":
                 case "varbinary":
                 case "character varying":
+                case "text":
                     return "STRING";
 
                 case "bytea":
@@ -1833,6 +1834,7 @@ namespace DashboardApi.Controllers
                 case "System.DateTime":
                 case "timestamp":
                 case "timestamp without time zone":
+                case "date":
                     return "timestamp";
                     //return "STRING";
 
